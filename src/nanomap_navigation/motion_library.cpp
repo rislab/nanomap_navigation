@@ -1,4 +1,4 @@
-#include "motion_library.h"
+#include <nanomap_navigation/motion_library.h>
 
 void MotionLibrary::InitializeLibrary(bool use_3d_library, double acceleration_interpolation_min, double speed_at_acceleration_max, double max_acceleration_total) {
 

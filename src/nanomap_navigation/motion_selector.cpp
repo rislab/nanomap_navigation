@@ -1,4 +1,4 @@
-#include "motion_selector.h"
+#include <nanomap_navigation/motion_selector.h>
 
 MotionLibrary* MotionSelector::GetMotionLibraryPtr() {
   return &motion_library;

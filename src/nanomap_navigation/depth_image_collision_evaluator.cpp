@@ -1,4 +1,4 @@
-#include "depth_image_collision_evaluator.h"
+#include <nanomap_navigation/depth_image_collision_evaluator.h>
 
 #define num_nearest_neighbors 1
 

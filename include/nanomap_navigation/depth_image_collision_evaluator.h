@@ -1,7 +1,7 @@
-#include "motion.h"
-#include "kd_tree.h"
+#include <nanomap_navigation/motion.h>
+#include <nanomap_navigation/kd_tree.h>
 
-#include "nanomap/nanomap.h"
+#include <nanomap_ros/nanomap.h>
 
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>

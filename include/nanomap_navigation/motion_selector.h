@@ -1,16 +1,16 @@
 #ifndef MOTION_SELECTOR_H
 #define MOTION_SELECTOR_H
 
-#include "motion_library.h"
-#include "depth_image_collision_evaluator.h"
-#include "value_grid_evaluator.h"
+#include <nanomap_navigation/motion_library.h>
+#include <nanomap_navigation/depth_image_collision_evaluator.h>
+#include <nanomap_navigation/value_grid_evaluator.h>
 
 #include <Eigen/Dense>
 #include <math.h>
 
 // This ROS stuff should go.  Only temporary.
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include "geometry_msgs/PoseStamped.h"
+#include <geometry_msgs/PoseStamped.h>
 
 class MotionSelector {
 public:

@@ -1,7 +1,7 @@
 #ifndef MOTION_LIBRARY_H
 #define MOTION_LIBRARY_H
 
-#include "motion.h"
+#include <nanomap_navigation/motion.h>
 #include <vector>
 
 #include <string>

@@ -1,4 +1,4 @@
-#include "motion_visualizer.h"
+#include <nanomap_navigation/motion_visualizer.h>
 
 void MotionVisualizer::initializeDrawingPaths() {
 	for (int i = 0; i < motion_selector->getNumMotions(); i++) {

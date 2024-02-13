@@ -1,4 +1,4 @@
-#include "motion_selector_utils.h"
+#include <nanomap_navigation/motion_selector_utils.h>
 
 geometry_msgs::PoseStamped PoseFromVector3(Vector3 const& position, std::string const& frame) {
 	geometry_msgs::PoseStamped pose;

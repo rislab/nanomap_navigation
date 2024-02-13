@@ -1,4 +1,4 @@
-#include "motion.h"
+#include <nanomap_navigation/motion.h>
 
 void Motion::setAccelerationMax(double const& acceleration_max) {
   this->a_max_horizontal = acceleration_max;

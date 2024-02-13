@@ -1,4 +1,4 @@
-#include "attitude_generator.h"
+#include <nanomap_navigation/attitude_generator.h>
 
 void AttitudeGenerator::UpdateRollPitch(double roll, double pitch) {
 	actual_roll = roll;

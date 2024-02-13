@@ -2,7 +2,7 @@
 #define VALUE_GRID_H
 
 #include <iostream>
-#include "motion_selector_utils.h"
+#include <nanomap_navigation/motion_selector_utils.h>
 
 
 class ValueGrid {

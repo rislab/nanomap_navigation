@@ -5,7 +5,7 @@
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
 
-#include "motion_selector.h"
+#include <nanomap_navigation/motion_selector.h>
 
 class MotionVisualizer {
 public:

@@ -2,18 +2,18 @@
 #include <nav_msgs/Path.h>
 #include <visualization_msgs/Marker.h>
 #include <sensor_msgs/PointCloud2.h>
-#include "geometry_msgs/PoseStamped.h"
-#include "geometry_msgs/TwistStamped.h"
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <mavros_msgs/AttitudeTarget.h>
 #include <nav_msgs/OccupancyGrid.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Range.h>
 #include <std_msgs/Float64.h>
-#include "fla_msgs/ProcessStatus.h"
-#include "fla_msgs/FlightCommand.h"
+// #include "fla_msgs/ProcessStatus.h"
+// #include "fla_msgs/FlightCommand.h"
 
-#include "tf/tf.h"
+#include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
@@ -23,22 +23,25 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
-#include "pcl_ros/transforms.h"
-#include "pcl_ros/impl/transforms.hpp"
+#include <pcl_ros/transforms.h>
+#include <pcl_ros/impl/transforms.hpp>
 
 #include <cmath>
 #include <time.h>
 #include <stdlib.h>
 #include <chrono>
 
-#include "acl_fsw/QuadGoal.h"
+// #include "acl_fsw/QuadGoal.h"
 
-#include "motion_selector.h"
-#include "attitude_generator.h"
-#include "motion_visualizer.h"
-#include "nanomap/nanomap_visualizer.h"
+#include <nanomap_navigation/motion_selector.h>
+#include <nanomap_navigation/attitude_generator.h>
+#include <nanomap_navigation/motion_visualizer.h>
+#include <nanomap_ros/nanomap_visualizer.h>
 
-#include "fla_utils/param_utils.h"
+// #include "fla_utils/param_utils.h"
+#include <parameter_utils/ParameterUtils.h>
+
+namespace pu = parameter_utils;
 
 class MotionSelectorNode {
 public:
@@ -58,19 +61,19 @@ public:
 		fla_utils::SafeGetParam(nh, "acceleration_interpolation_min", acceleration_interpolation_min);
 		fla_utils::SafeGetParam(nh, "yaw_on", yaw_on);
 		fla_utils::SafeGetParam(nh, "use_depth_image", use_depth_image);
-        fla_utils::SafeGetParam(nh, "speed_at_acceleration_max", speed_at_acceleration_max);
-        fla_utils::SafeGetParam(nh, "acceleration_interpolation_max", acceleration_interpolation_max);
-        fla_utils::SafeGetParam(nh, "flight_altitude", flight_altitude);
-        fla_utils::SafeGetParam(nh, "use_3d_library", use_3d_library);
-        fla_utils::SafeGetParam(nh, "use_acl", use_acl);
-        fla_utils::SafeGetParam(nh, "max_e_stop_pitch_degrees", max_e_stop_pitch_degrees);
-        fla_utils::SafeGetParam(nh, "laser_z_below_project_up", laser_z_below_project_up);
-        fla_utils::SafeGetParam(nh, "sensor_range", sensor_range);
-        fla_utils::SafeGetParam(nh, "A_dolphin", A_dolphin);
-        fla_utils::SafeGetParam(nh, "T_dolphin", T_dolphin);
-        fla_utils::SafeGetParam(nh, "use_lidar_lite_z", use_lidar_lite_z);
-        fla_utils::SafeGetParam(nh, "thrust_offset", offset);
-        fla_utils::SafeGetParam(nh, "N_depth_image_history", N_depth_image_history);
+    fla_utils::SafeGetParam(nh, "speed_at_acceleration_max", speed_at_acceleration_max);
+    fla_utils::SafeGetParam(nh, "acceleration_interpolation_max", acceleration_interpolation_max);
+    fla_utils::SafeGetParam(nh, "flight_altitude", flight_altitude);
+    fla_utils::SafeGetParam(nh, "use_3d_library", use_3d_library);
+    fla_utils::SafeGetParam(nh, "use_acl", use_acl);
+    fla_utils::SafeGetParam(nh, "max_e_stop_pitch_degrees", max_e_stop_pitch_degrees);
+    fla_utils::SafeGetParam(nh, "laser_z_below_project_up", laser_z_below_project_up);
+    fla_utils::SafeGetParam(nh, "sensor_range", sensor_range);
+    fla_utils::SafeGetParam(nh, "A_dolphin", A_dolphin);
+    fla_utils::SafeGetParam(nh, "T_dolphin", T_dolphin);
+    fla_utils::SafeGetParam(nh, "use_lidar_lite_z", use_lidar_lite_z);
+    fla_utils::SafeGetParam(nh, "thrust_offset", offset);
+    fla_utils::SafeGetParam(nh, "N_depth_image_history", N_depth_image_history);
 
 		this->soft_top_speed_max = soft_top_speed;
 
@@ -111,8 +114,8 @@ public:
 		gaussian_pub = nh.advertise<visualization_msgs::Marker>( "gaussian_visualization_topic", 0 );
 		attitude_thrust_pub = nh.advertise<mavros_msgs::AttitudeTarget>("attitude_setpoint_topic", 1);
 		attitude_setpoint_visualization_pub = nh.advertise<geometry_msgs::PoseStamped>("setpoint_visualization_topic", 1);
-		status_pub = nh.advertise<fla_msgs::ProcessStatus>("status_topic", 0);
-		quad_goal_pub = nh.advertise<acl_fsw::QuadGoal>("/FLA_ACL02/goal", 1);
+		// status_pub = nh.advertise<fla_msgs::ProcessStatus>("status_topic", 0);
+		// quad_goal_pub = nh.advertise<acl_fsw::QuadGoal>("/FLA_ACL02/goal", 1);
  	}
 
  	void WaitForTransforms(std::string first, std::string second) {
@@ -547,7 +550,7 @@ private:
 
 		ComputeBestAccelerationMotion();
 		SetPose(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, yaw);
-		PublishHealthStatus();
+		// PublishHealthStatus();
 
 		Eigen::Quaterniond quat(pose.pose.orientation.w, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z);
 		Vector3 pos = Vector3(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
@@ -565,23 +568,22 @@ private:
 		}
 	}
 
-	void PublishHealthStatus() {
+	// void PublishHealthStatus() {
 
-		fla_msgs::ProcessStatus msg;
-		msg.id = 21; // 21 is motion_primitives status_id
-		msg.pid = getpid();
+	// 	fla_msgs::ProcessStatus msg;
+	// 	msg.id = 21; // 21 is motion_primitives status_id
+	// 	msg.pid = getpid();
 
-		msg.status = fla_msgs::ProcessStatus::READY;
-		msg.arg = 0;
+	// 	msg.status = fla_msgs::ProcessStatus::READY;
+	// 	msg.arg = 0;
 
-		if (!got_camera_info && use_depth_image) {
-			msg.status = fla_msgs::ProcessStatus::ALARM;
-			msg.arg = 1;  
-		}
+	// 	if (!got_camera_info && use_depth_image) {
+	// 		msg.status = fla_msgs::ProcessStatus::ALARM;
+	// 		msg.arg = 1;  
+	// 	}
 		
-		status_pub.publish(msg);
-
-	}
+	// 	status_pub.publish(msg);
+	// }
 
 	void SetPose(double x, double y, double z, double yaw) {
 		pose_global_x = x;
@@ -1043,7 +1045,7 @@ private:
 	ros::Publisher gaussian_pub;
 	ros::Publisher attitude_thrust_pub;
 	ros::Publisher attitude_setpoint_visualization_pub;
-	ros::Publisher status_pub;
+	// ros::Publisher status_pub;
 	ros::Publisher quad_goal_pub;
 
 	std::string depth_sensor_frame = "depth_sensor";

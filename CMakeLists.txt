@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3")
-project(motion_primitives)
+project(nanomap_navigation)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
+set(CMAKE_CXX_STANDARD 17)
+
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   visualization_msgs
@@ -16,47 +15,40 @@ find_package(catkin REQUIRED COMPONENTS
   tf2
   cv_bridge
   image_transport
-  acl_fsw
-  message_generation
   sensor_msgs
   mavros_msgs
   pcl_ros
-  fla_msgs
-  fla_utils
+  nanomap_ros
+  parameter_utils
 )
-
-add_message_files( DIRECTORY msg FILES Coeff.msg State.msg )
-generate_messages( DEPENDENCIES std_msgs nav_msgs)
-
-find_package( Eigen3 REQUIRED )
+find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED)
-
-include_directories ( src )
-include_directories( ${EIGEN3_INCLUDE_DIR} )
-include_directories(${PCL_INCLUDE_DIRS})
-link_directories(${PCL_LIBRARY_DIRS})
-
-catkin_package(
-
-)
-
-include_directories(
-  ${catkin_INCLUDE_DIRS}
-)
-
-add_definitions("-std=c++11")
-
 find_package(orocos_kdl REQUIRED)
 find_library(OROCOS_KDL orocos-kdl)
 set(orocos_kdl_LIBRARIES ${OROCOS_KDL})
 
+catkin_package(
+  INCLUDE_DIRS include
+  LIBRARIES nanomap_ros
+)
 
-add_library( motion_selector src/motion_selector.cpp src/motion_library.cpp src/motion.cpp src/attitude_generator.cpp src/motion_visualizer.cpp src/value_grid_evaluator.cpp src/value_grid.cpp src/motion_selector_utils.cpp src/depth_image_collision_evaluator.cpp)
+include_directories(
+  include
+  ${EIGEN3_INCLUDE_DIR}
+  ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
+)
+link_directories(${PCL_LIBRARY_DIRS})
 
-add_library( nanomap src/nanomap/nanomap.cc src/nanomap/pose_manager.cc src/nanomap/structured_point_cloud_chain.cc src/nanomap/fov_evaluator.cc src/nanomap/nanomap_visualizer.cc)
+file(GLOB MS_SRC_FILES src/${PROJECT_NAME}/*.cpp)
 
-add_executable( motion_selector_node src/motion_selector_node.cpp )
-target_link_libraries( motion_selector_node motion_selector ${catkin_LIBRARIES} ${PCL_LIBRARIES} orocos-kdl)
-target_link_libraries( motion_selector_node nanomap)
+add_library(motion_selector ${MS_SRC_FILES})
 
+# TODO: create a node from scratch
+# add_executable(motion_selector_node nodes/motion_selector_node.cpp)
+# target_link_libraries(motion_selector_node PRIVATE motion_selector
+# ${catkin_LIBRARIES}
+# ${PCL_LIBRARIES}
+# orocos-kdl
+# )

@@ -1,4 +1,4 @@
-#include "value_grid.h"
+#include <nanomap_navigation/value_grid.h>
 
 int ValueGrid::GetValueOfPosition(Vector3 const& position_in_world_frame) {
 	Eigen::Matrix<Scalar, 2, 1> point_in_value_grid_frame = transformIntoValueGridFrame(position_in_world_frame);

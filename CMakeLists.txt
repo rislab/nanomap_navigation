@@ -44,11 +44,15 @@ link_directories(${PCL_LIBRARY_DIRS})
 file(GLOB MS_SRC_FILES src/${PROJECT_NAME}/*.cpp)
 
 add_library(nanomap_navigation ${MS_SRC_FILES})
+target_link_libraries(nanomap_navigation PRIVATE ${catkin_LIBRARIES}
+${PCL_LIBRARIES}
+orocos-kdl
+)
 
 # TODO: create a node from scratch
 # add_executable(motion_selector_node nodes/motion_selector_node.cpp)
 add_executable(nanomap_navigation_node nodes/nanomap_navigation_node.cpp)
-target_link_libraries(nanomap_navigation PRIVATE nanomap_navigation
+target_link_libraries(nanomap_navigation_node PRIVATE nanomap_navigation
 ${catkin_LIBRARIES}
 ${PCL_LIBRARIES}
 orocos-kdl

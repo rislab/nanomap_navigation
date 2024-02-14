@@ -30,7 +30,7 @@ set(orocos_kdl_LIBRARIES ${OROCOS_KDL})
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES nanomap_ros
+  LIBRARIES nanomap_navigation
 )
 
 include_directories(
@@ -56,4 +56,15 @@ target_link_libraries(nanomap_navigation_node PRIVATE nanomap_navigation
 ${catkin_LIBRARIES}
 ${PCL_LIBRARIES}
 orocos-kdl
+)
+
+install(
+  TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+install(
+  DIRECTORY include
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )

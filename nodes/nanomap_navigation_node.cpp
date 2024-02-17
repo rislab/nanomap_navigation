@@ -6,6 +6,8 @@
 #include <geometry_msgs/TwistWithCovarianceStamped.h>
 
 #include <tf/tf.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <nanomap_navigation/motion_selector.h>
 #include <nanomap_navigation/motion_visualizer.h>
@@ -39,7 +41,9 @@ public:
     std::cout << "Num motions: " << motion_selector.getNumMotions() << std::endl;
 		motion_selector.SetNominalFlightAltitude(flight_altitude);
 
+		// PublishOrthoBodyTransform(0.0, 0.0); // initializes ortho_body transform to be with 0, 0 roll, pitch
 		motion_visualizer.initialize(&motion_selector, nh, &best_traj_index, final_time);
+		tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
 
     // Subscribers
 		pose_sub = nh.subscribe("/rocky0704/pose", 100, &NanoMapNavigationNode::OnPose, this);
@@ -75,6 +79,7 @@ private:
 
 		last_pose_update = pose.header.stamp;
 		UpdateMotionLibraryRollPitch(roll, pitch);
+		// PublishOrthoBodyTransform(roll, pitch);
 
     // TODO add selection back in
 		// ComputeBestAccelerationMotion();
@@ -97,39 +102,78 @@ private:
 		twist.twist = twist_covariance.twist.twist;
 
 		// // attitude_generator.setZvelocity(twist.twist.linear.z);
-		// Vector3 velocity_world_frame(twist.twist.linear.x, twist.twist.linear.y, twist.twist.linear.z);
-		// Vector3 velocity_ortho_body_frame = TransformWorldToOrthoBody(velocity_world_frame);
-		// if (!use_3d_library || !use_acl) {
-		// 	velocity_ortho_body_frame(2) = 0.0;  // WARNING for 2D only
-		// }
-		// UpdateMotionLibraryVelocity(velocity_ortho_body_frame);
-		// speed = velocity_ortho_body_frame.norm();
-		// MonitorProgress();
-		// //UpdateTimeHorizon(speed);
-		// UpdateMaxAcceleration(speed);
+		Vector3 velocity_world_frame(twist.twist.linear.x, twist.twist.linear.y, twist.twist.linear.z);
+		Vector3 velocity_ortho_body_frame = TransformWorldToOrthoBody(velocity_world_frame);
+		if (!use_3d_library) {
+			velocity_ortho_body_frame(2) = 0.0;  // WARNING for 2D only
+		}
+		UpdateMotionLibraryVelocity(velocity_ortho_body_frame);
+		// UpdateMotionLibraryVelocity(velocity_world_frame);
+		speed = velocity_ortho_body_frame.norm();
+		// speed = velocity_world_frame.norm();
+		//UpdateTimeHorizon(speed);
+		UpdateMaxAcceleration(speed);
   }
  
-	// Vector3 TransformWorldToOrthoBody(Vector3 const& world_frame) {
-	// 	geometry_msgs::TransformStamped tf;
-	//     try {
-	//       tf = tf_buffer_.lookupTransform("ortho_body", "world", 
-	//                                     ros::Time(0), ros::Duration(1/30.0));
-	//     } catch (tf2::TransformException &ex) {
-	//       ROS_ERROR("ID 6 %s", ex.what());
-	//       return Vector3(1,1,1);
-	//     }
+	Vector3 TransformWorldToOrthoBody(Vector3 const& world_frame) {
+		geometry_msgs::TransformStamped tf;
+	    try {
+	      // tf = tf_buffer_.lookupTransform("ortho_body", "world", 
+	      //                               ros::Time(0), ros::Duration(1/30.0));
+	      tf = tf_buffer_.lookupTransform("ortho_body", "rocky0704/base", 
+	                                    ros::Time(0), ros::Duration(1/30.0));
+	    } catch (tf2::TransformException &ex) {
+	      ROS_ERROR("ID 6 %s", ex.what());
+	      return Vector3(1,1,1);
+	    }
 
-	//     Eigen::Quaternion<Scalar> quat(tf.transform.rotation.w, tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z);
-	//     Matrix3 R = quat.toRotationMatrix();
-	//     return R*world_frame;
-	// }
+	    Eigen::Quaternion<Scalar> quat(tf.transform.rotation.w, tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z);
+	    Matrix3 R = quat.toRotationMatrix();
+	    return R*world_frame;
+	}
+
+	void PublishOrthoBodyTransform(double roll, double pitch) {
+		static tf2_ros::TransformBroadcaster br;
+  		geometry_msgs::TransformStamped transformStamped;
+  
+	    transformStamped.header.stamp = ros::Time::now();
+	    transformStamped.header.frame_id = "body";
+	    transformStamped.child_frame_id = "ortho_body";
+	    transformStamped.transform.translation.x = 0.0;
+	    transformStamped.transform.translation.y = 0.0;
+	    transformStamped.transform.translation.z = 0.0;
+	    tf2::Quaternion q_ortho;
+	    q_ortho.setRPY(-roll, -pitch, 0);
+	    transformStamped.transform.rotation.x = q_ortho.x();
+	    transformStamped.transform.rotation.y = q_ortho.y();
+	    transformStamped.transform.rotation.z = q_ortho.z();
+	    transformStamped.transform.rotation.w = q_ortho.w();
+
+	    br.sendTransform(transformStamped);
+	}
+
+	void UpdateMotionLibraryVelocity(Vector3 const& velocity_ortho_body_frame) {
+		MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+		if (motion_library_ptr != nullptr) {
+			motion_library_ptr->setInitialVelocity(velocity_ortho_body_frame);
+		}
+	}
+
+	void UpdateMaxAcceleration(double speed) {
+		MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+			if (motion_library_ptr != nullptr) {
+				motion_library_ptr->UpdateMaxAcceleration(speed);
+			}
+	}
 
 	ros::Subscriber pose_sub;
 	ros::Subscriber velocity_sub;
   
+	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+	tf2_ros::Buffer tf_buffer_;
 
   // To initialize library
-	bool use_3d_library = false;
+	bool use_3d_library = true;
 	double final_time = 1.5;
 	double flight_altitude = 1.0;
 	double soft_top_speed_max = 0.0;
@@ -138,6 +182,8 @@ private:
 
 	MotionSelector motion_selector;
 	MotionVisualizer motion_visualizer;
+
+  double speed = 0.0;
 
 	ros::NodeHandle nh;
 

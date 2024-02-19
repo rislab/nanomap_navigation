@@ -29,8 +29,26 @@ Vector3 Motion::getAcceleration() const{
   return this->acceleration;
 }
 
+Vector3 Motion::getAccelerationAtTime(Scalar const& t) const{
+  if (t < jerk_time) {
+    return jerk*t + initial_acceleration;
+  }
+  else {
+    return this->acceleration;
+  }
+}
+
 Vector3 Motion::getJerk() const {
   return this->jerk;
+}
+
+Vector3 Motion::getJerkAtTime(Scalar const& t) const {
+  if (t < jerk_time) {
+    return this->jerk;
+  }
+  else {
+    return Vector3(0,0,0);
+  }
 }
 
 Vector3 Motion::getInitialVelocity() const {

@@ -29,11 +29,13 @@ public:
   void setInitialVelocity(Vector3 const& initial_velocity);
   
   Vector3 getAcceleration() const;
+  Vector3 getAccelerationAtTime(Scalar const& t) const;
   Vector3 getVelocity(Scalar const& t) const;
   Vector3 getInitialVelocity() const;
   Vector3 getPosition(Scalar const& t) const;
   Vector3 getTerminalStopPosition(Scalar const& t) const;
   Vector3 getJerk() const;
+  Vector3 getJerkAtTime(Scalar const& t) const;
   
 private:
   

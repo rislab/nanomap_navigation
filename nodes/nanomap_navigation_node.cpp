@@ -102,24 +102,20 @@ private:
 		twist.twist = twist_covariance.twist.twist;
 
 		// // attitude_generator.setZvelocity(twist.twist.linear.z);
-		Vector3 velocity_world_frame(twist.twist.linear.x, twist.twist.linear.y, twist.twist.linear.z);
-		Vector3 velocity_ortho_body_frame = TransformWorldToOrthoBody(velocity_world_frame);
+		Vector3 velocity_body_frame(twist.twist.linear.x, twist.twist.linear.y, twist.twist.linear.z);
+		Vector3 velocity_ortho_body_frame = TransformBodyToOrthoBody(velocity_body_frame);
 		if (!use_3d_library) {
 			velocity_ortho_body_frame(2) = 0.0;  // WARNING for 2D only
 		}
 		UpdateMotionLibraryVelocity(velocity_ortho_body_frame);
-		// UpdateMotionLibraryVelocity(velocity_world_frame);
 		speed = velocity_ortho_body_frame.norm();
-		// speed = velocity_world_frame.norm();
 		//UpdateTimeHorizon(speed);
 		UpdateMaxAcceleration(speed);
   }
  
-	Vector3 TransformWorldToOrthoBody(Vector3 const& world_frame) {
+	Vector3 TransformBodyToOrthoBody(Vector3 const& body_frame) {
 		geometry_msgs::TransformStamped tf;
 	    try {
-	      // tf = tf_buffer_.lookupTransform("ortho_body", "world", 
-	      //                               ros::Time(0), ros::Duration(1/30.0));
 	      tf = tf_buffer_.lookupTransform("ortho_body", "rocky0704/base", 
 	                                    ros::Time(0), ros::Duration(1/30.0));
 	    } catch (tf2::TransformException &ex) {
@@ -129,7 +125,7 @@ private:
 
 	    Eigen::Quaternion<Scalar> quat(tf.transform.rotation.w, tf.transform.rotation.x, tf.transform.rotation.y, tf.transform.rotation.z);
 	    Matrix3 R = quat.toRotationMatrix();
-	    return R*world_frame;
+	    return R*body_frame;
 	}
 
 	void PublishOrthoBodyTransform(double roll, double pitch) {

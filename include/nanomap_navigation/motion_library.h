@@ -23,6 +23,10 @@ public:
     this->pitch = pitch;
     updateInitialAcceleration();
   };
+  void setRollPitchDirectly(double const& roll, double const& pitch) {
+    this->roll = roll;
+    this->pitch = pitch;
+  };
   void setThrust(double const& thrust) {
     this->thrust = thrust;
   };
@@ -32,6 +36,7 @@ public:
     return initial_acceleration;
   }
 
+  void setInitialAcceleration(const Vector3& initial_accel);
   void setMaxAccelerationTotal(double max_accel);
   void setMinSpeedAtMaxAccelerationTotal(double speed);
 

@@ -88,6 +88,14 @@ void MotionLibrary::updateInitialAcceleration() {
 	return;
 };
 
+void MotionLibrary::setInitialAcceleration(const Vector3& initial_accel) {
+	initial_acceleration = initial_accel;
+	for (size_t index = 0; index < motions.size(); index++) {
+		motions.at(index).setInitialAcceleration(initial_acceleration);
+	}
+	return;
+};
+
 void MotionLibrary::setBestAccelerationMotion(Vector3 best_acceleration) {
 	motions.at(0).setAcceleration(best_acceleration);
 }

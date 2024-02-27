@@ -80,8 +80,11 @@ Vector3 Motion::getTerminalStopPosition(Scalar const& t) const {
   Vector3 velocity_end_of_motion = getVelocity(t);
 
   double speed = velocity_end_of_motion.norm();
-  
-  Vector3 stopping_vector = -velocity_end_of_motion/speed;
+
+  Vector3 stopping_vector(0,0,0);
+  if (speed != 0.0) {
+    stopping_vector = -velocity_end_of_motion/speed;
+  }
   Vector3 max_stop_acceleration = a_max_horizontal*stopping_vector;
   Vector3 stopping_jerk = (max_stop_acceleration - acceleration) / jerk_time;
   Vector3 position_end_of_jerk_stop = 0.1666*stopping_jerk*jerk_time*jerk_time*jerk_time + 0.5*acceleration*jerk_time*jerk_time + velocity_end_of_motion*jerk_time + position_end_of_motion;

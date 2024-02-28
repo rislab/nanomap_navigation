@@ -102,7 +102,7 @@ void MotionLibrary::setBestAccelerationMotion(Vector3 best_acceleration) {
 
 void MotionLibrary::setInitialVelocity(Vector3 const& velocity) {
 	initial_velocity = velocity;
-	initial_velocity(2) = 0; // WARNING MUST GET RID OF THIS FOR 3D FLIGHT
+	// initial_velocity(2) = 0; // WARNING MUST GET RID OF THIS FOR 3D FLIGHT
 	for (size_t index = 0; index < motions.size(); index++) {
 		motions.at(index).setInitialVelocity(initial_velocity);
 	}

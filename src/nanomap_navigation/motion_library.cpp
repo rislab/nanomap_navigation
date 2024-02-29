@@ -44,6 +44,56 @@ void MotionLibrary::InitializeLibrary(bool use_3d_library, double acceleration_i
 	}
 };
 
+void MotionLibrary::InitializeLibrarySphere(bool use_3d_library, double acceleration_interpolation_min, double speed_at_acceleration_max, double max_acceleration_total) {
+
+    this->speed_at_acceleration_max = speed_at_acceleration_max;
+    this->max_acceleration_total = max_acceleration_total;
+	this->initial_max_acceleration = acceleration_interpolation_min;
+	
+	Vector3 zero_initial_velocity = Vector3(0,0,0);
+
+	// Optimal motion (ignoring obstacles) is 0th motion, initialize to 0 acceleration but this gets recalculated in motion_selector_node
+	Vector3 acceleration = Vector3(0,0,0);
+	motions.push_back(Motion( acceleration, zero_initial_velocity ));
+
+	// Next motion is 0 acceleration
+	acceleration = Vector3(0,0,0);
+	motions.push_back(Motion( acceleration, zero_initial_velocity ));
+
+	// Then build up more motions by sampling over accelerations
+	std::vector<double> horizontal_accelerations = {initial_max_acceleration, 0.6*initial_max_acceleration, 0.4*initial_max_acceleration, 0.15*initial_max_acceleration};
+	std::vector<double> vertical_accelerations = {0.0};
+	size_t num_samples_around_circle = 16;
+
+	if (use_3d_library) {
+		horizontal_accelerations.clear();
+		horizontal_accelerations.push_back(initial_max_acceleration);
+		horizontal_accelerations.push_back(0.6*initial_max_acceleration);
+		horizontal_accelerations.push_back(0.15*initial_max_acceleration);
+		num_samples_around_circle = 8;
+
+		size_t num_samples_vertical = 5; // ie. number vertical layers in sphere
+		vertical_accelerations.clear();
+		double theta = M_PI/(num_samples_vertical+1);
+		for (size_t i = 1; i <= num_samples_vertical; i++) {
+			vertical_accelerations.push_back(theta*i);
+		}
+	}
+
+	for (size_t i = 0; i < horizontal_accelerations.size(); i++) {
+		double radius = horizontal_accelerations.at(i);
+		for (size_t j = 0; j < vertical_accelerations.size(); j++) {
+			double z = cos(vertical_accelerations.at(j)) * radius;
+			double layer_radius = sin(vertical_accelerations.at(j)) * radius;
+			BuildMotionsSamplingAroundHorizontalCircle(z, layer_radius, num_samples_around_circle);
+		}
+	}
+	
+	for (size_t index = 0; index < motions.size(); index++) {
+		motions.at(index).setAccelerationMax(acceleration_interpolation_min);
+	}
+};
+
 void MotionLibrary::BuildMotionsSamplingAroundHorizontalCircle(double vertical_acceleration, double horizontal_acceleration_radius, size_t num_samples_around_circle) {
 	for (double i = 0; i < num_samples_around_circle; i++) {
 		double theta = i*2*M_PI/num_samples_around_circle;

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <ros/ros.h>
+#include <visualization_msgs/Marker.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -11,6 +12,7 @@
 
 #include <nanomap_navigation/motion_selector.h>
 #include <nanomap_navigation/motion_visualizer.h>
+#include <nanomap_navigation/motion_selector_utils.h>
 
 #include <parameter_utils/ParameterUtils.h>
 
@@ -46,10 +48,10 @@ public:
     // Subscribers
     pose_sub = nh.subscribe("/rocky0704/pose", 100, &NanoMapNavigationNode::OnPose, this);
     velocity_sub = nh.subscribe("/rocky0704/twist", 100, &NanoMapNavigationNode::OnVelocity, this);
+    local_goal_sub = nh.subscribe("/local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
 
-    local_goal_sub = nh.subscribe("local_goal_topic", 1, &MotionSelectorNode::OnLocalGoal, this);
     // Publishers
-    // TODO publish visualizations
+	carrot_pub = nh.advertise<visualization_msgs::Marker>("carrot_marker_topic", 0);
     }
 
     void drawAll() {
@@ -106,6 +108,31 @@ private:
         //UpdateTimeHorizon(speed);
         UpdateMaxAcceleration(speed);
     }
+
+    void OnLocalGoal(geometry_msgs::PoseStamped const& local_goal) {
+        carrot_world_frame(0) = local_goal.pose.position.x; 
+        carrot_world_frame(1) = local_goal.pose.position.y;
+        carrot_world_frame(2) = local_goal.pose.position.z;
+        UpdateCarrotOrthoBodyFrame();
+        visualization_msgs::Marker marker;
+        marker.header.frame_id = "ortho_body";
+        marker.header.stamp = ros::Time::now();
+        marker.ns = "carrot_namespace";
+        marker.id = 1;
+        marker.type = visualization_msgs::Marker::SPHERE;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = carrot_ortho_body_frame(0);
+        marker.pose.position.y = carrot_ortho_body_frame(1);
+        marker.pose.position.z = carrot_ortho_body_frame(2);
+        marker.scale.x = 0.5;
+        marker.scale.y = 0.5;
+        marker.scale.z = 0.5;
+        marker.color.a = 0.5;
+        marker.color.r = 0.9;
+        marker.color.g = 0.4;
+        marker.color.b = 0.0;
+        carrot_pub.publish(marker);
+    }
  
     Vector3 TransformBodyToOrthoBody(Vector3 const& body_frame) {
         geometry_msgs::TransformStamped tf;
@@ -136,12 +163,39 @@ private:
             }
     }
 
+    void UpdateCarrotOrthoBodyFrame() {
+        geometry_msgs::TransformStamped tf;
+        try {
+            tf = tf_buffer_.lookupTransform("ortho_body", "world", 
+                                            ros::Time(0), ros::Duration(1.0/30.0));
+        } catch (tf2::TransformException &ex) {
+            ROS_ERROR("ID 2 %s", ex.what());
+            return;
+        }
+
+        geometry_msgs::PoseStamped pose_global_goal_world_frame = PoseFromVector3(carrot_world_frame, "world");
+        geometry_msgs::PoseStamped pose_global_goal_ortho_body_frame = PoseFromVector3(Vector3(0,0,0), "ortho_body");
+
+        tf2::doTransform(pose_global_goal_world_frame, pose_global_goal_ortho_body_frame, tf);
+        carrot_ortho_body_frame = VectorFromPose(pose_global_goal_ortho_body_frame);
+    }
+
+    // State variables
     ros::Subscriber pose_sub;
     ros::Subscriber velocity_sub;
     ros::Subscriber local_goal_sub;
+	ros::Publisher carrot_pub;
   
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     tf2_ros::Buffer tf_buffer_;
+
+    MotionSelector motion_selector;
+
+	Vector3 carrot_world_frame;
+	Vector3 carrot_ortho_body_frame = Vector3(0,0,0);
+
+	size_t best_traj_index = 0;
+	Vector3 desired_acceleration = Vector3(0,0,0);
 
     // To initialize library
     bool use_3d_library = true;
@@ -149,15 +203,13 @@ private:
     double flight_altitude = 1.0;
     double soft_top_speed_max = 0.0;
 
-    size_t best_traj_index = 0;
-
-    MotionSelector motion_selector;
-    MotionVisualizer motion_visualizer;
 
     double speed = 0.0;
 
     ros::NodeHandle nh;
 
+public:
+    MotionVisualizer motion_visualizer;
 };
 
 int main(int argc, char **argv) {

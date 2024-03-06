@@ -23,42 +23,236 @@ public:
 
     NanoMapNavigationNode() : nh("~") {
     
-    // Initialization
-    double acceleration_interpolation_min;
-    double soft_top_speed;
-    double speed_at_acceleration_max;
-    double acceleration_interpolation_max;
+        // Initialization
+        double acceleration_interpolation_min;
+        double soft_top_speed;
+        double speed_at_acceleration_max;
+        double acceleration_interpolation_max;
 
-    // Get values from param server
-    pu::get("acceleration_interpolation_min", acceleration_interpolation_min);
-    pu::get("soft_top_speed", soft_top_speed);
-    pu::get("speed_at_acceleration_max", speed_at_acceleration_max);
-    pu::get("acceleration_interpolation_max", acceleration_interpolation_max);
-    pu::get("flight_altitude", flight_altitude);
+        // Get values from param server
+        pu::get("acceleration_interpolation_min", acceleration_interpolation_min);
+        pu::get("soft_top_speed", soft_top_speed);
+        pu::get("speed_at_acceleration_max", speed_at_acceleration_max);
+        pu::get("acceleration_interpolation_max", acceleration_interpolation_max);
+        pu::get("flight_altitude", flight_altitude);
 
-    this->soft_top_speed_max = soft_top_speed;
+        this->soft_top_speed_max = soft_top_speed;
 
-    // Using motion_selector only to get the motion_library
-    motion_selector.InitializeLibrary(use_3d_library, final_time, soft_top_speed, acceleration_interpolation_min, speed_at_acceleration_max, acceleration_interpolation_max);
-    motion_selector.SetNominalFlightAltitude(flight_altitude);
+        // Using motion_selector only to get the motion_library
+        motion_selector.InitializeLibrary(use_3d_library, final_time, soft_top_speed, acceleration_interpolation_min, speed_at_acceleration_max, acceleration_interpolation_max);
+        motion_selector.SetNominalFlightAltitude(flight_altitude);
 
-    motion_visualizer.initialize(&motion_selector, nh, &best_traj_index, final_time);
-    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
+        motion_visualizer.initialize(&motion_selector, nh, &best_traj_index, final_time);
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
 
-    // Subscribers
-    pose_sub = nh.subscribe("/rocky0704/pose", 100, &NanoMapNavigationNode::OnPose, this);
-    velocity_sub = nh.subscribe("/rocky0704/twist", 100, &NanoMapNavigationNode::OnVelocity, this);
-    local_goal_sub = nh.subscribe("/local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
+        // Subscribers
+        pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
+        velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
+        local_goal_sub = nh.subscribe("local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
 
-    // Publishers
-	carrot_pub = nh.advertise<visualization_msgs::Marker>("carrot_marker_topic", 0);
+        // Publishers
+        carrot_pub = nh.advertise<visualization_msgs::Marker>("carrot_marker_topic", 0);
     }
+
+	void SetThrustForLibrary(double thrust) {
+		MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+		if (motion_library_ptr != nullptr) {
+			motion_library_ptr->setThrust(thrust);
+		}
+	}
+
+    /*
+	void ComputeBestAccelerationMotion() {
+		if (executing_e_stop) { //Does not compute if executing e stop
+			return;
+		}
+
+		MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+		if (motion_library_ptr != nullptr) {
+
+			// compute best acceleration in open field
+			double time_to_eval = 0.5;
+			Vector3 initial_velocity_ortho_body = motion_library_ptr->getMotionFromIndex(best_traj_index).getVelocity(0.0);
+			Vector3 position_if_dont_accel = initial_velocity_ortho_body*time_to_eval;
+			Vector3 vector_towards_goal = (carrot_ortho_body_frame - position_if_dont_accel);
+			Vector3 best_acceleration = ((vector_towards_goal/vector_towards_goal.norm()) * soft_top_speed_max - initial_velocity_ortho_body) / time_to_eval;
+			double current_max_acceleration = motion_library_ptr->getNewMaxAcceleration();
+			if (best_acceleration.norm() > current_max_acceleration) {
+				best_acceleration = best_acceleration * current_max_acceleration / best_acceleration.norm();
+			}
+			motion_library_ptr->setBestAccelerationMotion(best_acceleration);
+
+			// if within stopping distance, line search for best stopping acceleration
+			Vector3 stop_position = motion_library_ptr->getMotionFromIndex(0).getTerminalStopPosition(0.5);
+			double stop_distance = stop_position.dot(vector_towards_goal/vector_towards_goal.norm());
+			double distance_to_carrot = carrot_ortho_body_frame(0);
+			
+			int max_line_searches = 10;
+			int counter_line_searches = 0;
+			while ( (stop_distance > distance_to_carrot) && (counter_line_searches < max_line_searches) ) {
+				best_acceleration = best_acceleration * distance_to_carrot / stop_distance;
+				if (best_acceleration.norm() > current_max_acceleration) {
+					best_acceleration = best_acceleration * current_max_acceleration / best_acceleration.norm();
+				}
+				motion_library_ptr->setBestAccelerationMotion(best_acceleration);
+				stop_position = motion_library_ptr->getMotionFromIndex(0).getTerminalStopPosition(0.5);
+				stop_distance = stop_position.dot(vector_towards_goal/vector_towards_goal.norm());
+				counter_line_searches++;	
+			} 
+		}
+	}
+
+    void PublishCurrentAttitudeSetpoint() {
+        double forward_propagation_time = ros::Time::now().toSec() - last_pose_update.toSec();
+        Vector3 attitude_thrust_desired = attitude_generator.generateDesiredAttitudeThrust(desired_acceleration, forward_propagation_time);
+        SetThrustForLibrary(attitude_thrust_desired(2));
+
+        PassToOuterLoop(desired_acceleration);
+        if (use_3d_library) {
+            AltitudeFeedbackOnBestMotion();
+        }
+    }
+    */
 
     void drawAll() {
         motion_visualizer.drawAll();
     }
 
 private:
+
+    /*
+    void PassToOuterLoop(Vector3 desired_acceleration_setpoint) {
+        if (!motion_primitives_live) {return;}
+
+        MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+        if (motion_library_ptr != nullptr) {
+
+            Motion best_motion = motion_library_ptr->getMotionFromIndex(best_traj_index);
+
+            // build up QuadGoal
+            acl_fsw::QuadGoal quad_goal;
+            quad_goal.cut_power = false;
+            quad_goal.xy_mode = acl_fsw::QuadGoal::MODE_ACCEL;
+            quad_goal.z_mode = acl_fsw::QuadGoal::MODE_POS;
+
+            Vector3 pos = TransformOrthoBodyToWorld(best_motion.getPosition(0.5));
+            Vector3 vel = RotateOrthoBodyToWorld(best_motion.getVelocity(0.5));
+            Vector3 accel = RotateOrthoBodyToWorld(best_motion.getAcceleration());
+            Vector3 jerk = RotateOrthoBodyToWorld(best_motion.getJerk());
+				
+            quad_goal.jerk.x = jerk(0);
+            quad_goal.jerk.y = jerk(1);
+            quad_goal.jerk.z = jerk(2);
+            quad_goal.accel.x = accel(0);
+            quad_goal.accel.y = accel(1);
+            quad_goal.accel.z = accel(2);
+            //quad_goal.vel.x = vel(0);
+            //quad_goal.vel.y = vel(1);
+            //quad_goal.pos.x = pos(0);
+            //quad_goal.pos.y = pos(1);
+            if (use_3d_library) {
+                quad_goal.pos.z = pos(2);
+                quad_goal.vel.z = vel(2);
+            } else {
+                double vel = 0;
+                double accel = 0;
+                double dolphin_altitude = DolphinStrokeDetermineAltitude(speed, vel, accel);
+                carrot_world_frame(2) = dolphin_altitude; 
+                quad_goal.pos.z = dolphin_altitude;
+                quad_goal.vel.z = vel;
+                quad_goal.accel.z = accel;
+            }
+
+            UpdateYaw();
+            quad_goal.yaw = -set_bearing_azimuth_degrees*M_PI/180.0;
+
+            if (stationary_yawing) {
+                quad_goal.xy_mode = acl_fsw::QuadGoal::MODE_VEL;
+                quad_goal.jerk.x = 0;
+                quad_goal.jerk.y = 0;
+                quad_goal.vel.x = 0;
+                quad_goal.vel.y = 0;
+            }
+
+            quad_goal_pub.publish(quad_goal);
+        }
+    }
+
+    bool motion_primitives_live = false;
+    void OnCommand(const fla_msgs::FlightCommand& msg)  {
+        if (msg.command == fla_msgs::FlightCommand::CMD_GO){
+            ROS_INFO("GOT GO COMMAND");
+            motion_primitives_live = true;
+
+            ROS_INFO("Starting");	
+        }
+        else{
+            motion_primitives_live = false;
+        }	
+    }
+
+    bool stationary_yawing = false;
+    void SetYawFromMotion() {
+		MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
+		if (motion_library_ptr != nullptr) {
+
+			// get position at t=0
+			Vector3 initial_position_ortho_body = motion_library_ptr->getMotionFromIndex(best_traj_index).getPosition(0.0);
+			// get velocity at t=0
+			Vector3 initial_velocity_ortho_body = motion_library_ptr->getMotionFromIndex(best_traj_index).getVelocity(0.5);
+			Vector3 final_velocity_ortho_body = motion_library_ptr->getMotionFromIndex(best_traj_index).getVelocity(0.5);
+			// normalize velocity
+			double speed_initial = initial_velocity_ortho_body.norm();
+			double speed_final = final_velocity_ortho_body.norm();
+			if (speed_final != 0) {
+				final_velocity_ortho_body = final_velocity_ortho_body / speed_final;
+			}
+
+			// add normalized velocity to position to get a future position
+			Vector3 final_position_ortho_body = initial_position_ortho_body + initial_velocity_ortho_body;
+			// yaw towards future position using below
+
+			Vector3 final_position_world = TransformOrthoBodyToWorld(final_position_ortho_body);
+			
+			// if already going slow, and carrot close, then don't yaw (otherwise we spin around and hunt)
+			if (speed_initial < 2.0 && carrot_ortho_body_frame.norm() < 1.0) {
+				stationary_yawing = false;
+				motion_selector.SetSoftTopSpeed(soft_top_speed_max);
+				return;
+			}
+
+
+			if ((final_position_world(0) - pose_global_x)!= 0) {
+				double potential_bearing_azimuth_degrees = CalculateYawFromPosition(final_position_world);
+				double actual_bearing_azimuth_degrees = -pose_global_yaw * 180.0/M_PI;
+				double bearing_error = potential_bearing_azimuth_degrees - actual_bearing_azimuth_degrees;
+				while(bearing_error > 180) { 
+					bearing_error -= 360;
+				}
+				while(bearing_error < -180) { 
+					bearing_error += 360;
+				}
+
+				// if inside 100 degrees, let it yaw towards
+				if (abs(bearing_error) < 50.0)  {
+					stationary_yawing = false;
+					motion_selector.SetSoftTopSpeed(soft_top_speed_max);
+					bearing_azimuth_degrees = potential_bearing_azimuth_degrees;
+					return;
+				}
+
+				// else, slow down
+				motion_selector.SetSoftTopSpeed(0.1);
+				stationary_yawing = false;
+				if (speed_initial < 0.5) {
+					bearing_azimuth_degrees = CalculateYawFromPosition(carrot_world_frame);
+					stationary_yawing = true;
+				}
+
+			}
+		}
+	}
+    */
 
     ros::Time last_pose_update;
     void OnPose(geometry_msgs::PoseWithCovarianceStamped const& pose_covariance) {
@@ -82,7 +276,9 @@ private:
 
         // TODO add selection back in
         // ComputeBestAccelerationMotion();
-        // SetPose(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, yaw);
+        SetPose(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, yaw);
+
+        // TODO add nanomap stuff back here
     }
 
     void UpdateMotionLibraryRollPitch(double roll, double pitch) {
@@ -124,6 +320,10 @@ private:
         marker.pose.position.x = carrot_ortho_body_frame(0);
         marker.pose.position.y = carrot_ortho_body_frame(1);
         marker.pose.position.z = carrot_ortho_body_frame(2);
+        marker.pose.orientation.x = 0.0;
+        marker.pose.orientation.y = 0.0;
+        marker.pose.orientation.z = 0.0;
+        marker.pose.orientation.w = 1.0;
         marker.scale.x = 0.5;
         marker.scale.y = 0.5;
         marker.scale.z = 0.5;
@@ -132,6 +332,13 @@ private:
         marker.color.g = 0.4;
         marker.color.b = 0.0;
         carrot_pub.publish(marker);
+    }
+
+    void SetPose(double x, double y, double z, double yaw) {
+        pose_global_x = x;
+        pose_global_y = y;
+        pose_global_z = z;
+        pose_global_yaw = yaw;
     }
  
     Vector3 TransformBodyToOrthoBody(Vector3 const& body_frame) {
@@ -180,16 +387,24 @@ private:
         carrot_ortho_body_frame = VectorFromPose(pose_global_goal_ortho_body_frame);
     }
 
-    // State variables
     ros::Subscriber pose_sub;
     ros::Subscriber velocity_sub;
     ros::Subscriber local_goal_sub;
+
 	ros::Publisher carrot_pub;
   
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
     tf2_ros::Buffer tf_buffer_;
 
-    MotionSelector motion_selector;
+    double start_time = 0.0;
+    double final_time = 1.5;
+
+	double bearing_azimuth_degrees = 0.0;
+	double set_bearing_azimuth_degrees = 0.0;
+
+	Eigen::Vector4d pose_x_y_z_yaw;
+
 
 	Vector3 carrot_world_frame;
 	Vector3 carrot_ortho_body_frame = Vector3(0,0,0);
@@ -197,12 +412,22 @@ private:
 	size_t best_traj_index = 0;
 	Vector3 desired_acceleration = Vector3(0,0,0);
 
-    // To initialize library
-    bool use_3d_library = true;
-    double final_time = 1.5;
-    double flight_altitude = 1.0;
-    double soft_top_speed_max = 0.0;
+    MotionSelector motion_selector;
 
+	double pose_global_x = 0;
+	double pose_global_y = 0;
+	double pose_global_z = 0;
+	double pose_global_yaw = 0;
+
+	// bool yaw_on = false;
+    double soft_top_speed_max = 0.0;
+    bool use_3d_library = true;
+    double flight_altitude = 1.0;
+
+	bool executing_e_stop = false;
+	// double begin_e_stop_time = 0.0;
+	// double e_stop_time_needed = 0.0;
+	// double max_e_stop_pitch_degrees = 60.0;
 
     double speed = 0.0;
 

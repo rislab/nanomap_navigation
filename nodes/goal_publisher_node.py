@@ -4,7 +4,7 @@ import rospy
 from geometry_msgs.msg import PoseStamped
 
 def goal_publisher():
-    pub = rospy.Publisher('local_goal_topic', PoseStamped, queue_size=0)
+    pub = rospy.Publisher('local_goal', PoseStamped, queue_size=0)
     rospy.init_node('goal_publisher')
     rate = rospy.Rate(10) # Hz
     seq = 1

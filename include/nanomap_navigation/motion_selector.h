@@ -32,9 +32,9 @@ public:
   std::vector<double> getCollisionProbabilities() {
     return collision_probabilities;
   }
-  std::vector<double> getHokuyoCollisionProbabilities() {
-    return hokuyo_collision_probabilities;
-  }
+  // std::vector<double> getHokuyoCollisionProbabilities() {
+  //   return hokuyo_collision_probabilities;
+  // }
 
   void SetNominalFlightAltitude(double flight_altitude) {this->nominal_altitude = flight_altitude;};
   void SetSoftTopSpeed(double top_speed) {this->soft_top_speed = top_speed;}
@@ -78,7 +78,7 @@ private:
 
   std::vector<double> collision_probabilities;
   std::vector<double> no_collision_probabilities;
-  std::vector<double> hokuyo_collision_probabilities;
+  // std::vector<double> hokuyo_collision_probabilities;
 
   std::vector<double> objectives_dijkstra;
   std::vector<double> objectives_euclid;

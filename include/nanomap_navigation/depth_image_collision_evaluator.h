@@ -11,6 +11,9 @@
 #include <chrono>
 #include <algorithm> 
 
+// use this to help debug matrices not being initialized correctly
+// #define EIGEN_INITIALIZE_MATRICES_BY_NAN
+
 class DepthImageCollisionEvaluator {
 public:
 	DepthImageCollisionEvaluator() {
@@ -23,7 +26,7 @@ public:
 	}
 	
   void UpdatePointCloudPtr(pcl::PointCloud<pcl::PointXYZ>::Ptr const& xyz_cloud_new);
-  void UpdateLaserPointCloudPtr(pcl::PointCloud<pcl::PointXYZ>::Ptr const& xyz_cloud_new);
+  // void UpdateLaserPointCloudPtr(pcl::PointCloud<pcl::PointXYZ>::Ptr const& xyz_cloud_new);
   void UpdateRotationMatrix(Matrix3 const R);
   void UpdateBodyToRdf(Matrix3 const& R);
 
@@ -35,7 +38,7 @@ public:
   double AddOutsideFOVPenalty(Vector3 robot_position, double probability_of_collision);
   
   double computeProbabilityOfCollisionNPositionsKDTree_DepthImage(Vector3 const& robot_position, Vector3 const& sigma_robot_position, bool early_exit);
-  double computeProbabilityOfCollisionNPositionsKDTree_Laser(Vector3 const& robot_position, Vector3 const& sigma_robot_position);
+  // double computeProbabilityOfCollisionNPositionsKDTree_Laser(Vector3 const& robot_position, Vector3 const& sigma_robot_position);
   double computeProbabilityOfCollisionNPositionsKDTree(Vector3 const& robot_position, Vector3 const& sigma_robot_position, std::vector<pcl::PointXYZ> const& closest_pts, double interpolation_radius);
 
   void setCameraInfo(double bin, double width, double height, Matrix3 K_camera_info);
@@ -45,7 +48,7 @@ public:
 private:
 
   pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_cloud_ptr;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_laser_cloud_ptr;
+  // pcl::PointCloud<pcl::PointXYZ>::Ptr xyz_laser_cloud_ptr;
 
   Vector3 sigma_depth_point = Vector3(0.01, 0.01, 0.01);
 
@@ -55,12 +58,11 @@ private:
   double num_y_pixels = 240/binning;
 
   KDTree<double> my_kd_tree_depth_image;
-  KDTree<double> my_kd_tree_laser;
+  // KDTree<double> my_kd_tree_laser;
 
   Matrix3 R; //rotation matrix from ortho_body frame into camera rdf frame
   Matrix3 R_body_to_rdf;
   Matrix3 R_body_to_rdf_inverse;
-
   double p_collision_behind = 0.5;
   double p_collision_left_right_fov = 0.5;
   double p_collision_up_down_fov = 0.5;

@@ -7,10 +7,10 @@ void DepthImageCollisionEvaluator::UpdatePointCloudPtr(pcl::PointCloud<pcl::Poin
   my_kd_tree_depth_image.Initialize(xyz_cloud_ptr);
 }
 
-void DepthImageCollisionEvaluator::UpdateLaserPointCloudPtr(pcl::PointCloud<pcl::PointXYZ>::Ptr const& xyz_cloud_new) {
-  xyz_laser_cloud_ptr = xyz_cloud_new;
-  my_kd_tree_laser.Initialize(xyz_laser_cloud_ptr);
-}
+// void DepthImageCollisionEvaluator::UpdateLaserPointCloudPtr(pcl::PointCloud<pcl::PointXYZ>::Ptr const& xyz_cloud_new) {
+//   xyz_laser_cloud_ptr = xyz_cloud_new;
+//   my_kd_tree_laser.Initialize(xyz_laser_cloud_ptr);
+// }
 
 void DepthImageCollisionEvaluator::UpdateRotationMatrix(Matrix3 const R) {
   this->R = R;
@@ -110,6 +110,19 @@ double DepthImageCollisionEvaluator::AddOutsideFOVPenalty(Vector3 robot_position
 }
 
 double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTree_DepthImage(Vector3 const& robot_position, Vector3 const& sigma_robot_position, bool early_exit) {
+  // Check for NaNs
+  bool contains_nans = false;
+  for (int i = 0; i < 3; ++i) {
+    if (std::isnan(robot_position(i)) || std::isnan(sigma_robot_position(i))) {
+      contains_nans = true;
+      break;
+    }
+  }
+  if (contains_nans) {
+    ROS_WARN("CONTAINS NANS 2");
+    std::cout << "robot_position: " << robot_position.transpose() << std::endl;
+    std::cout << "sigma_robot_position: " << sigma_robot_position.transpose() << std::endl;
+  }
   double probability_of_collision = 0.0;
   if (1) {
 
@@ -117,6 +130,23 @@ double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTr
     args.query_point_current_body_frame = R_body_to_rdf_inverse*R*robot_position;
     args.axis_aligned_linear_covariance = R_body_to_rdf_inverse*R*sigma_robot_position;
     args.early_exit = early_exit;
+
+    // Check if rotation matrices are nans
+    contains_nans = false;
+    for (int i = 0; i < 3; ++i) {
+      if (std::isnan(args.query_point_current_body_frame(i)) || std::isnan(args.axis_aligned_linear_covariance(i))) {
+        contains_nans = true;
+        break;
+      }
+    }
+    if (contains_nans) {
+      ROS_WARN("CONTAINS NANS 3");
+      std::cout << "args.query_point_current_body_frame: " << args.query_point_current_body_frame.transpose() << std::endl;
+      std::cout << "args.axis_aligned_linear_covariance: " << args.axis_aligned_linear_covariance.transpose() << std::endl;
+      std::cout << "R_body_to_rdf_inverse: " << R_body_to_rdf_inverse << std::endl;
+      std::cout << "R: " << R << std::endl;
+    }
+
     NanoMapKnnReply reply = nanomap.KnnQuery(args);
 
     if (NANOMAP_DEBUG_PRINT) {
@@ -173,14 +203,14 @@ double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTr
 }
 
 
-double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTree_Laser(Vector3 const& robot_position, Vector3 const& sigma_robot_position) {
-  if (xyz_laser_cloud_ptr != nullptr) {
-    my_kd_tree_laser.SearchForNearest<num_nearest_neighbors>(robot_position[0], robot_position[1], robot_position[2]);
-    double probability_of_collision = computeProbabilityOfCollisionNPositionsKDTree(robot_position, sigma_robot_position, my_kd_tree_laser.closest_pts, 0.3);
-    return ThresholdHard(probability_of_collision);
-  }
-  return 0.0;
-}
+// double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTree_Laser(Vector3 const& robot_position, Vector3 const& sigma_robot_position) {
+//   if (xyz_laser_cloud_ptr != nullptr) {
+//     my_kd_tree_laser.SearchForNearest<num_nearest_neighbors>(robot_position[0], robot_position[1], robot_position[2]);
+//     double probability_of_collision = computeProbabilityOfCollisionNPositionsKDTree(robot_position, sigma_robot_position, my_kd_tree_laser.closest_pts, 0.3);
+//     return ThresholdHard(probability_of_collision);
+//   }
+//   return 0.0;
+// }
 
 double DepthImageCollisionEvaluator::computeProbabilityOfCollisionNPositionsKDTree(Vector3 const& robot_position, Vector3 const& sigma_robot_position, std::vector<pcl::PointXYZ> const& closest_pts, double interpolation_radius) {
   double probability_no_collision = 1.0;

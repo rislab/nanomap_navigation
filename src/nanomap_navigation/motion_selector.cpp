@@ -47,7 +47,7 @@ void MotionSelector::InitializeObjectiveVectors() {
 
     collision_probabilities.push_back(0.0);
     no_collision_probabilities.push_back(0.0);
-    hokuyo_collision_probabilities.push_back(0.0);
+    // hokuyo_collision_probabilities.push_back(0.0);
 
     objectives_dijkstra.push_back(0.0);
     objectives_euclid.push_back(0.0);
@@ -266,9 +266,10 @@ void MotionSelector::EvaluateCollisionProbabilities() {
   for (auto motion = motion_iterator_begin; motion != motion_iterator_end; motion++) {
     double collision_probability = 0;
     double hokuyo_collision_probability = 0;
+    // JON: not going to change the function stub, but hokuyo_collision_probability is not used
     computeProbabilityOfCollisionOneMotion(*motion, collision_probability, hokuyo_collision_probability, (i==-1));
     collision_probabilities.at(i) = collision_probability;
-    hokuyo_collision_probabilities.at(i) = hokuyo_collision_probability;
+    // hokuyo_collision_probabilities.at(i) = hokuyo_collision_probability;
     no_collision_probabilities.at(i) = 1.0 - collision_probabilities.at(i); 
     i++;
   }
@@ -276,7 +277,7 @@ void MotionSelector::EvaluateCollisionProbabilities() {
 
 void MotionSelector::computeProbabilityOfCollisionOneMotion(Motion motion, double &collision_probability, double &hokuyo_collision_probability, bool print) {
   double probability_no_collision = 1;
-  double probability_no_collision_hokuyo = 1;
+  // double probability_no_collision_hokuyo = 1;
 
   double probability_no_collision_one_step = 1.0;
   double probability_of_collision_one_step_one_depth = 1.0;
@@ -289,18 +290,41 @@ void MotionSelector::computeProbabilityOfCollisionOneMotion(Motion motion, doubl
   for (size_t time_step_index = 0; time_step_index < num_samples_collision; time_step_index++) {
     sigma_robot_position = 0.1*motion_library.getSigmaAtTime(collision_sampling_time_vector(time_step_index))*(1 + k*motion.getVelocity(collision_sampling_time_vector(time_step_index)).norm()); 
     robot_position = motion.getPosition(collision_sampling_time_vector(time_step_index));
-    probability_no_collision_one_step = 1 - depth_image_collision_evaluator.computeProbabilityOfCollisionNPositionsKDTree_Laser(robot_position, sigma_robot_position);
-    probability_no_collision_hokuyo = probability_no_collision_hokuyo * probability_no_collision_one_step;
+    // probability_no_collision_one_step = 1 - depth_image_collision_evaluator.computeProbabilityOfCollisionNPositionsKDTree_Laser(robot_position, sigma_robot_position);
+    // probability_no_collision_hokuyo = probability_no_collision_hokuyo * probability_no_collision_one_step;
+
+    // Debugging nan in args
+    bool contains_nans = false;
+    for (int i = 0; i < 3; ++i) {
+      if (std::isnan(robot_position(i)) || std::isnan(sigma_robot_position(i))) {
+        contains_nans = true;
+        break;
+      }
+    }
+    if (contains_nans) {
+      ROS_ERROR("CONTAINS NANS 1");
+      motion.printMotionAttributes();
+
+      std::cout << "\ntime_step_index: " << time_step_index << std::endl;
+      std::cout << "getPosition: " << collision_sampling_time_vector(time_step_index) << std::endl;
+      std::cout << "getSigmaAtTime: " << (collision_sampling_time_vector(time_step_index))*(1 + k*motion.getVelocity(collision_sampling_time_vector(time_step_index)).norm()) << std::endl;
+      std::cout << "robot_position: " << robot_position.transpose() << std::endl;
+      std::cout << "sigma_robot_position: " << sigma_robot_position.transpose() << std::endl;
+      break;
+    }
+      
     probability_of_collision_one_step_one_depth = depth_image_collision_evaluator.computeProbabilityOfCollisionNPositionsKDTree_DepthImage(robot_position, sigma_robot_position, early_exit);
 
-    probability_no_collision_one_step = probability_no_collision_one_step * (1 - probability_of_collision_one_step_one_depth);
+    // JON this replaces the line below
+    probability_no_collision_one_step = 1 - probability_of_collision_one_step_one_depth;
+    // probability_no_collision_one_step = probability_no_collision_one_step * (1 - probability_of_collision_one_step_one_depth);
     probability_no_collision = probability_no_collision * probability_no_collision_one_step;
     if (probability_no_collision < 0.1) { // early exit
       early_exit = true;
     }
   }
   collision_probability = 1.0 - probability_no_collision;
-  hokuyo_collision_probability = 1.0 - probability_no_collision_hokuyo;
+  // hokuyo_collision_probability = 1.0 - probability_no_collision_hokuyo;
 };
 
 Eigen::Matrix<Scalar, Eigen::Dynamic, 3> MotionSelector::sampleMotionForDrawing(size_t motion_index, Eigen::Matrix<Scalar, Eigen::Dynamic, 1> sampling_time_vector, size_t num_samples) {

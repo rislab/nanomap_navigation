@@ -36,6 +36,8 @@ public:
   Vector3 getTerminalStopPosition(Scalar const& t) const;
   Vector3 getJerk() const;
   Vector3 getJerkAtTime(Scalar const& t) const;
+
+  void printMotionAttributes() const;
   
 private:
   

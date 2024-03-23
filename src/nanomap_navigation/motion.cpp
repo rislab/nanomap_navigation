@@ -1,3 +1,4 @@
+#include <iostream>
 #include <nanomap_navigation/motion.h>
 
 void Motion::setAccelerationMax(double const& acceleration_max) {
@@ -105,4 +106,30 @@ Vector3 Motion::getTerminalStopPosition(Scalar const& t) const {
 
 }
 
+// JON: print to help with debugging
+void Motion::printMotionAttributes() const {
+  std::cout << "Motion info:" << std::endl;
+  std::cout << "  acceleration: " << acceleration.transpose() << std::endl;
+  std::cout << "  initial_velocity: " << initial_velocity.transpose() << std::endl;
+  std::cout << "  initial_acceleration: " << initial_acceleration.transpose() << std::endl;
+  std::cout << "  jerk: " << jerk.transpose() << std::endl;
+  std::cout << "  position_end_of_jerk_time: " << position_end_of_jerk_time.transpose() << std::endl;
+  std::cout << "  velocity_end_of_jerk_time: " << velocity_end_of_jerk_time.transpose() << std::endl;
+  std::cout << "  acceleration_laser: " << acceleration_laser.transpose() << std::endl;
+  std::cout << "  initial_velocity_laser: " << initial_velocity_laser.transpose() << std::endl;
+  std::cout << "  initial_acceleration_laser: " << initial_acceleration_laser.transpose() << std::endl;
+  std::cout << "  jerk_laser: " << jerk_laser.transpose() << std::endl;
+  std::cout << "  position_end_of_jerk_time_laser: " << position_end_of_jerk_time_laser.transpose() << std::endl;
+  std::cout << "  velocity_end_of_jerk_time_laser: " << velocity_end_of_jerk_time_laser.transpose() << std::endl;
+  std::cout << "  acceleration_rdf: " << acceleration_rdf.transpose() << std::endl;
+  std::cout << "  initial_velocity_rdf: " << initial_velocity_rdf.transpose() << std::endl;
+  std::cout << "  initial_acceleration_rdf: " << initial_acceleration_rdf.transpose() << std::endl;
+  std::cout << "  jerk_rdf: " << jerk_rdf.transpose() << std::endl;
+  std::cout << "  position_end_of_jerk_time_rdf: " << position_end_of_jerk_time_rdf.transpose() << std::endl;
+  std::cout << "  velocity_end_of_jerk_time_rdf: " << velocity_end_of_jerk_time_rdf.transpose() << std::endl;
+  std::cout << "  a_max_horizontal: " << a_max_horizontal << std::endl;
+  std::cout << "  jerk_time: " << jerk_time << std::endl;
+  std::cout << "  stopping_factor: " << stopping_factor << std::endl;
+  std::cout << "  unscaled_acceleration: " << unscaled_acceleration.transpose() << std::endl;
 
+}

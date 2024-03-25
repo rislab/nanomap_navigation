@@ -387,10 +387,10 @@ private:
         // implicitly converting from Eigen Vector3 to geometry_utils::Vec3
         state.pos = TransformOrthoBodyToWorld(motion.getPosition(t));
         state.vel = RotateOrthoBodyToWorld(motion.getVelocity(t));
-        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
-        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
-        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
-        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
+        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
+        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
+        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
+        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
         state.acc = acc_des; 
         state.jerk = jerk_ref; 
         state.snap.zeros();

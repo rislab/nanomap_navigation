@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   nanomap_ros
   parameter_utils
+  control_arch
 )
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)

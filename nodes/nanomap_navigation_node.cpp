@@ -50,8 +50,13 @@
 
 // #include "fla_utils/param_utils.h"
 #include <parameter_utils/ParameterUtils.h>
+#include <control_arch/Waypoints.h>
+#include <control_arch/utils/state_t.h>
+#include <control_arch/trajectory/Waypoints.h>
+#include <control_arch/Waypoints.h>
 
 namespace pu = parameter_utils;
+namespace gu = geometry_utils;
 
 class NanoMapNavigationNode {
 public:
@@ -80,8 +85,8 @@ public:
         pu::get("max_e_stop_pitch_degrees", max_e_stop_pitch_degrees);
         // pu::get("laser_z_below_project_up", laser_z_below_project_up);
         pu::get("sensor_range", sensor_range);
-        pu::get("A_dolphin", A_dolphin);
-        pu::get("T_dolphin", T_dolphin);
+        // pu::get("A_dolphin", A_dolphin);
+        // pu::get("T_dolphin", T_dolphin);
         // pu::get("use_lidar_lite_z", use_lidar_lite_z);
         pu::get("thrust_offset", offset);
         pu::get("N_depth_image_history", N_depth_image_history);
@@ -135,6 +140,7 @@ public:
         attitude_setpoint_visualization_pub = nh.advertise<geometry_msgs::PoseStamped>("setpoint_visualization_topic", 1);
         // status_pub = nh.advertise<fla_msgs::ProcessStatus>("status_topic", 0);
         // quad_goal_pub = nh.advertise<acl_fsw::QuadGoal>("/FLA_ACL02/goal", 1);
+        waypoints_pub = nh.advertise<control_arch::Waypoints>("trajectory/waypoints", 1);
      }
 
      void WaitForTransforms(std::string first, std::string second) {
@@ -217,9 +223,8 @@ public:
         motion_visualizer.setCollisionProbabilities(collision_probabilities);
         // JON: CheckIfInevitableCollision now uses collision_probabilities instead of hokuyo_collision_probabilities
         if (executing_e_stop || CheckIfInevitableCollision(collision_probabilities)) {
-            // TODO: JON enable estopping again
-            ROS_WARN_THROTTLE(1.0, "Supposed to execute E-STOP here");
-            // ExecuteEStop();
+            ROS_WARN_THROTTLE(1.0, "Executing E-STOP maneuver");
+            ExecuteEStop();
         }
         else if (yaw_on) {
             SetYawFromMotion();
@@ -328,11 +333,15 @@ public:
     }
 
     void PublishCurrentAttitudeSetpoint() {
+        // std::cout << "In PublishCurrentAttitudeSetpoint" << std::endl;
         double forward_propagation_time = ros::Time::now().toSec() - last_pose_update.toSec();
         Vector3 attitude_thrust_desired = attitude_generator.generateDesiredAttitudeThrust(desired_acceleration, forward_propagation_time);
         SetThrustForLibrary(attitude_thrust_desired(2));
 
-        if (use_acl){PassToOuterLoop(desired_acceleration);}
+        if (use_acl){
+            // std::cout << "## Entering PassToOuterLoop" << std::endl;
+            PassToOuterLoop(desired_acceleration);
+        }
         else if (use_3d_library){AltitudeFeedbackOnBestMotion();}
         if (!use_acl){PublishAttitudeSetpoint(attitude_thrust_desired);}
     }
@@ -366,6 +375,71 @@ public:
 
 private:
 
+    state_t getPoseAtTime(const Motion& motion, const double& t, const double& global_start_time) {
+        state_t state;
+        
+        // Start time
+        // state.t = global_start_time + t;
+        state.t = t;
+
+        // implicitly converting from Eigen Vector3 to geometry_utils::Vec3
+        state.pos = TransformOrthoBodyToWorld(motion.getPosition(t));
+        state.vel = RotateOrthoBodyToWorld(motion.getVelocity(t));
+        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
+        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
+        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
+        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
+        state.acc = acc_des; 
+        state.jerk = jerk_ref; 
+        state.snap.zeros();
+
+        // build rotation matrix from
+        Vector3 roll_pitch_thrust = attitude_generator.generateDesiredAttitudeThrust(acc_des, t);
+        double pitch_ref = roll_pitch_thrust(1);
+        // TODO: JON confirm these are negative
+        double roll_ref = -roll_pitch_thrust(0); 
+        double yaw_ref = -set_bearing_azimuth_degrees*M_PI/180.0;
+
+        Eigen::Matrix3d rot;
+        rot = Eigen::AngleAxisd(yaw_ref, Eigen::Vector3d::UnitZ())
+            * Eigen::AngleAxisd(pitch_ref, Eigen::Vector3d::UnitY())
+            * Eigen::AngleAxisd(roll_ref, Eigen::Vector3d::UnitX());
+        gu::Rot3d rot3d(rot);
+        state.rot = rot3d;
+        
+        // Differential flatness equations for angular velocities
+        Vector3 x_c = Vector3(cos(yaw_ref), sin(yaw_ref), 0.0);
+        Vector3 y_c = Vector3(sin(yaw_ref), cos(yaw_ref), 0.0);
+        Vector3 z_bdes = acc_des.normalized();
+        Vector3 x_bdes = (y_c.cross(z_bdes)).normalized();
+        Vector3 y_bdes = z_bdes.cross(x_bdes);
+        double c = z_bdes.dot(acc_des); // component of desired acceleration in z body
+        double dyaw_ref = 0.0;
+
+        double wx = (-y_bdes.dot(jerk_ref)) / c;
+        double wy = (y_bdes.dot(jerk_ref)) / c;
+        double wz = (dyaw_ref*x_c.dot(x_bdes) + wy*y_c.dot(z_bdes))
+                    / (y_c.cross(z_bdes)).norm();
+        state.ang = gu::Vec3(wx, wy, wz); // TODO: does Pete implicitly just do .zeros() here?
+        state.angacc.zeros();
+
+        state.dyaw = 0.0;
+        state.d2yaw = 0.0;
+        state.d3yaw = 0.0;
+
+        return state;
+    }
+
+    std::vector<state_t> samplePath(const Motion& motion, const double& dt, 
+    const double& tstart, const double& tfinal, const double& global_start_time) {
+        std::vector<state_t> traj_path;
+
+        for (double t = tstart; t <= tfinal + 1e-6; t+=dt)
+            traj_path.push_back(getPoseAtTime(motion, t, global_start_time));
+
+        return traj_path;
+    }
+
     void PassToOuterLoop(Vector3 desired_acceleration_setpoint) {
         if (!motion_primitives_live) {return;}
 
@@ -374,12 +448,40 @@ private:
 
             Motion best_motion = motion_library_ptr->getMotionFromIndex(best_traj_index);
 
-            // TODO: (JON) publish some control arch message
+            UpdateYaw(); // TODO (JON): Is this necessary here?
+
+            // TODO: JON set these from parameter server
+            double duration = 1.0;
+            double dt = 0.005;
+            // double start = 0.01;
+            // double end = start + dt - 0.0001;
+            double global_start_time = ros::Time::now().toSec();
+
+            // Returns sampled path in world frame
+            std::vector<state_t> wpts = samplePath(best_motion, dt, 0.0, duration, global_start_time);
+            // std::vector<state_t> wpts = samplePath(best_motion, dt, start, end, global_start_time);
             
-            Vector3 pos = TransformOrthoBodyToWorld(best_motion.getPosition(0.5));
-            Vector3 vel = RotateOrthoBodyToWorld(best_motion.getVelocity(0.5));
-            Vector3 accel = RotateOrthoBodyToWorld(best_motion.getAcceleration());
-            Vector3 jerk = RotateOrthoBodyToWorld(best_motion.getJerk());
+            // Generate a waypoints message and schedule the primitive
+            control_arch::Waypoints waypoints_msg;
+            // Waypoints traj(wpts, dt);
+            Waypoints traj(wpts);
+            traj.toMessage(waypoints_msg);
+
+            waypoints_msg.start_time = ros::Time::now();
+            waypoints_msg.duration = ros::Duration(duration);
+            waypoints_msg.interval = dt;
+
+            waypoints_msg.header.stamp = ros::Time::now();
+            waypoints_msg.header.frame_id = "world";
+
+            waypoints_msg.trajectory_options.scheduling_mode =
+                control_arch::TrajectoryOptions::REPLACE;
+            waypoints_msg.trajectory_options.enable_on_ramp = false;
+            waypoints_msg.trajectory_options.enable_off_ramp = false;
+            waypoints_msg.trajectory_options.required_flag = "hover"; 
+
+            waypoints_pub.publish(waypoints_msg);
+            // std::cout << "publishing " << wpts.size() << " waypoints" << std::endl;
 
             // std::cout 
             //     << "pos: \n"
@@ -646,13 +748,13 @@ private:
         PublishOrthoBodyTransform(roll, pitch);
         UpdateCarrotOrthoBodyFrame();
 
-        double vel = 0.0;
-        double accel = 0.0;
-        double dolphin_altitude = DolphinStrokeDetermineAltitude(speed, vel, accel);
-        if (!use_3d_library) {
-            carrot_world_frame(2) = dolphin_altitude; 
-            attitude_generator.setZsetpoint(dolphin_altitude);
-        }
+        // double vel = 0.0;
+        // double accel = 0.0;
+        // double dolphin_altitude = DolphinStrokeDetermineAltitude(speed, vel, accel);
+        // if (!use_3d_library) {
+        //     carrot_world_frame(2) = dolphin_altitude; 
+        //     attitude_generator.setZsetpoint(dolphin_altitude);
+        // }
 
         ComputeBestAccelerationMotion();
         SetPose(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z, yaw);
@@ -917,78 +1019,80 @@ private:
     }
 
 
+    // JON: dolphin is only enabled if !use_3d_library
+
     // Hack function to add motion up/down in order to help state estimator
     // dolphin_altitude(t) = A * cos(t * 2pi/T) + flight_altitude
     // A = amplitude
     // T = period
-    double A_dolphin = 0.5;
-    double T_dolphin = 3.0;
-    double dolphin_acceleration_threshold = 2.0;
-    double cooldown_duration = 3.0;
+    // double A_dolphin = 0.5;
+    // double T_dolphin = 3.0;
+    // double dolphin_acceleration_threshold = 2.0;
+    // double cooldown_duration = 3.0;
 
-    double time_of_last_dolphin_query = 0;
-    bool dolphin_initialized = false;
-    double time_of_start_cooldown = 0;
+    // double time_of_last_dolphin_query = 0;
+    // bool dolphin_initialized = false;
+    // double time_of_start_cooldown = 0;
 
-    double dolphin_offset = 0.0;
+    // double dolphin_offset = 0.0;
 
-    size_t cooldown_hit_counter = 0;
-    size_t cooldown_hit_threshold = 20;
-    bool in_cooldown = false;
+    // size_t cooldown_hit_counter = 0;
+    // size_t cooldown_hit_threshold = 20;
+    // bool in_cooldown = false;
 
-    double DolphinStrokeDetermineAltitude(double speed, double &vel, double &accel) {
-        if (!dolphin_initialized) {
-            dolphin_initialized = true;
-            time_of_start_dolphin_stroke = ros::Time::now().toSec();
-            time_of_start_cooldown = ros::Time::now().toSec();
-            return flight_altitude;
-        }
+    // double DolphinStrokeDetermineAltitude(double speed, double &vel, double &accel) {
+    //     if (!dolphin_initialized) {
+    //         dolphin_initialized = true;
+    //         time_of_start_dolphin_stroke = ros::Time::now().toSec();
+    //         time_of_start_cooldown = ros::Time::now().toSec();
+    //         return flight_altitude;
+    //     }
 
-        double time_now = ros::Time::now().toSec();
+    //     double time_now = ros::Time::now().toSec();
 
-        if (desired_acceleration.norm() > dolphin_acceleration_threshold) {
-            cooldown_hit_counter++;
-            if (cooldown_hit_counter > cooldown_hit_threshold) {
-                cooldown_hit_counter = 0;
-                time_of_start_cooldown = time_now;
-                in_cooldown = true;	
-            }
-        }
-        else {
-            if (cooldown_hit_counter <= 1) {
-                cooldown_hit_counter = 0;
-            }
-            else {
-                cooldown_hit_counter--;
-            }
-        }
+    //     if (desired_acceleration.norm() > dolphin_acceleration_threshold) {
+    //         cooldown_hit_counter++;
+    //         if (cooldown_hit_counter > cooldown_hit_threshold) {
+    //             cooldown_hit_counter = 0;
+    //             time_of_start_cooldown = time_now;
+    //             in_cooldown = true;	
+    //         }
+    //     }
+    //     else {
+    //         if (cooldown_hit_counter <= 1) {
+    //             cooldown_hit_counter = 0;
+    //         }
+    //         else {
+    //             cooldown_hit_counter--;
+    //         }
+    //     }
         
-        if ( (time_now - time_of_start_cooldown) > cooldown_duration) {
-            if (in_cooldown) {
-                in_cooldown = false;
-                time_of_start_dolphin_stroke = time_now;
-            }
-            double time_since_start_dolphin = time_now - time_of_start_dolphin_stroke;
-            dolphin_offset = A_dolphin * sin(time_since_start_dolphin * 2 * M_PI / T_dolphin);
-            vel = A_dolphin * cos(time_since_start_dolphin * 2 * M_PI/T_dolphin) * 2 * M_PI / T_dolphin;
-            accel = A_dolphin * -sin(time_since_start_dolphin * 2 * M_PI/T_dolphin) * 4 * M_PI * M_PI / (T_dolphin * T_dolphin);
+    //     if ( (time_now - time_of_start_cooldown) > cooldown_duration) {
+    //         if (in_cooldown) {
+    //             in_cooldown = false;
+    //             time_of_start_dolphin_stroke = time_now;
+    //         }
+    //         double time_since_start_dolphin = time_now - time_of_start_dolphin_stroke;
+    //         dolphin_offset = A_dolphin * sin(time_since_start_dolphin * 2 * M_PI / T_dolphin);
+    //         vel = A_dolphin * cos(time_since_start_dolphin * 2 * M_PI/T_dolphin) * 2 * M_PI / T_dolphin;
+    //         accel = A_dolphin * -sin(time_since_start_dolphin * 2 * M_PI/T_dolphin) * 4 * M_PI * M_PI / (T_dolphin * T_dolphin);
 
-        }
-        else {
-            if (dolphin_offset > 0) {dolphin_offset = dolphin_offset - 0.01;}
-            else {dolphin_offset = dolphin_offset + 0.01;}
-        }
+    //     }
+    //     else {
+    //         if (dolphin_offset > 0) {dolphin_offset = dolphin_offset - 0.01;}
+    //         else {dolphin_offset = dolphin_offset + 0.01;}
+    //     }
 
-        double ans = dolphin_offset + flight_altitude;
+    //     double ans = dolphin_offset + flight_altitude;
 
-        geometry_msgs::PoseStamped pose;
-        pose.pose.position.z = ans;
-        pose.header.stamp = ros::Time::now();
-        pose.header.frame_id = "world";
-        attitude_setpoint_visualization_pub.publish(pose);
+    //     geometry_msgs::PoseStamped pose;
+    //     pose.pose.position.z = ans;
+    //     pose.header.stamp = ros::Time::now();
+    //     pose.header.frame_id = "world";
+    //     attitude_setpoint_visualization_pub.publish(pose);
 
-        return ans;
-    }
+    //     return ans;
+    // }
 
 
     void OnLocalGoal(geometry_msgs::PoseStamped const& local_goal) {		
@@ -1173,6 +1277,7 @@ private:
     ros::Publisher attitude_setpoint_visualization_pub;
     // ros::Publisher status_pub;
     // ros::Publisher quad_goal_pub;
+    ros::Publisher waypoints_pub;
 
     std::string depth_sensor_frame_id = "depth_sensor";
     std::string body_frame_id = "body";

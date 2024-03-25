@@ -55,6 +55,8 @@
 #include <control_arch/trajectory/Waypoints.h>
 #include <control_arch/Waypoints.h>
 
+#define GRAVITY_CONSTANT 9.8
+
 namespace pu = parameter_utils;
 namespace gu = geometry_utils;
 
@@ -245,7 +247,7 @@ public:
         if (!executing_e_stop) {
             begin_e_stop_time = ros::Time::now().toSec();
             if (motion_library_ptr != nullptr) {
-                double e_stop_acceleration_magnitude = 9.8*tan(max_e_stop_pitch_degrees * M_PI / 180.0);
+                double e_stop_acceleration_magnitude = GRAVITY_CONSTANT*tan(max_e_stop_pitch_degrees * M_PI / 180.0);
                 Vector3 initial_velocity_ortho_body = motion_library_ptr->getMotionFromIndex(best_traj_index).getVelocity(0.0);
                 Vector3 e_stop_acceleration = -1.0 * e_stop_acceleration_magnitude * initial_velocity_ortho_body/initial_velocity_ortho_body.norm();
                 motion_library_ptr->setBestAccelerationMotion(e_stop_acceleration);
@@ -385,10 +387,10 @@ private:
         // implicitly converting from Eigen Vector3 to geometry_utils::Vec3
         state.pos = TransformOrthoBodyToWorld(motion.getPosition(t));
         state.vel = RotateOrthoBodyToWorld(motion.getVelocity(t));
-        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
-        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
-        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
-        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
+        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
+        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
+        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
+        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
         state.acc = acc_des; 
         state.jerk = jerk_ref; 
         state.snap.zeros();
@@ -459,7 +461,6 @@ private:
 
             // Returns sampled path in world frame
             std::vector<state_t> wpts = samplePath(best_motion, dt, 0.0, duration, global_start_time);
-            // std::vector<state_t> wpts = samplePath(best_motion, dt, start, end, global_start_time);
             
             // Generate a waypoints message and schedule the primitive
             control_arch::Waypoints waypoints_msg;

@@ -1,5 +1,7 @@
 #include <nanomap_navigation/attitude_generator.h>
 
+#define GRAVITY_CONSTANT 9.8
+
 void AttitudeGenerator::UpdateRollPitch(double roll, double pitch) {
 	actual_roll = roll;
 	actual_pitch = pitch;
@@ -20,7 +22,7 @@ void AttitudeGenerator::setZvelocity(double z_velocity) {
 Vector3 AttitudeGenerator::generateDesiredAttitudeThrust(Vector3 const& desired_acceleration, double forward_propagation_time) {
 	double a_x = desired_acceleration(0);
 	double a_y = desired_acceleration(1);
-	double a_z = desired_acceleration(2) + 9.8;
+	double a_z = desired_acceleration(2) + GRAVITY_CONSTANT;
 	if (a_z == 0) {
 		a_z = 1;
 	}

@@ -47,7 +47,8 @@ private:
 	ros::NodeHandle nh;
 	ros::Publisher gaussian_pub;
   ros::Publisher collision_pub;
-	std::vector<ros::Publisher> action_paths_pubs;
+	// std::vector<ros::Publisher> action_paths_pubs;
+	ros::Publisher paths_pub;
 
   MotionSelector* motion_selector;
 

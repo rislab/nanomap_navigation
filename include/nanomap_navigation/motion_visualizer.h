@@ -32,6 +32,7 @@ public:
   void createSamplingTimeVector();
   void initializeDrawingPaths();
 
+  void drawMotion(const size_t& motion, const bool& is_best_motion);
   void drawAll();
   void drawGaussianPropagation(int id, Vector3 position, Vector3 sigma);
   void drawFinalStoppingPosition(int id, Vector3 position);
@@ -47,8 +48,8 @@ private:
 	ros::NodeHandle nh;
 	ros::Publisher gaussian_pub;
   ros::Publisher collision_pub;
-	// std::vector<ros::Publisher> action_paths_pubs;
 	ros::Publisher paths_pub;
+	ros::Publisher best_path_pub;
 
   MotionSelector* motion_selector;
 

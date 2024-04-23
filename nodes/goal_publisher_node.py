@@ -55,13 +55,47 @@ class GoalNode:
             seq += 1
 
 if __name__ == '__main__':
+    print("LAUNCHING GOAL PUBLISHER NODE")
     try:
-        goals = [
-            np.array([0, -18, 2]),
-            np.array([-20, -18, 2]),
-            np.array([0, -18, 2]),
-            np.array([0, 0, 2]),
-        ]
+        scene_id = rospy.get_param("scene_id", 0)
+        print("Got the scene id {}".format(scene_id))
+        scene_id=2
+        if (scene_id == 0):
+            # industrial
+            z = 2
+            goals = [
+                np.array([0, -18, z]),
+                np.array([-20, -18, z]),
+                np.array([0, -18, z]),
+                np.array([0, 0, z]),
+            ]
+        elif (scene_id == 1):
+            # cartoon forest
+            z = 2
+            goals = [
+                np.array([0, -18, z]),
+                np.array([-20, -18, z]),
+                np.array([0, -18, z]),
+                np.array([0, 0, z]),
+            ]
+        elif (scene_id == 2):
+            print("Goals for forest scene")
+            # forest
+            z = 2
+            # np.array([0, -18, z]),
+            goals = [
+                np.array([10, 10, z]),
+                np.array([10, 28, z]),
+                np.array([10, 10, z]),
+                np.array([0, 0, z]),
+            ]
+        else:
+            goals = [
+                np.array([0, -18, 2]),
+                np.array([-20, -18, 2]),
+                np.array([0, -18, 2]),
+                np.array([0, 0, 2]),
+            ]
         node = GoalNode(goals, goal_radius=2)
         node.run()
     except rospy.ROSInterruptException:

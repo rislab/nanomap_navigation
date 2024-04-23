@@ -55,6 +55,7 @@
 #include <control_arch/trajectory/Waypoints.h>
 #include <control_arch/Waypoints.h>
 
+#include <control_arch/FsmFlags.h>
 #define GRAVITY_CONSTANT 9.8
 
 namespace pu = parameter_utils;
@@ -124,6 +125,7 @@ public:
         odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
         // pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
         // velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
+        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
         
         camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
         depth_image_sub = nh.subscribe("depth_camera_pointcloud_topic", 1, &NanoMapNavigationNode::OnDepthImage, this);
@@ -562,6 +564,26 @@ private:
             ROS_INFO("GOT COMMAND OFF");
             motion_primitives_live = false;
         }	
+    }
+
+    void flagsCallback(const control_arch::FsmFlags::ConstPtr& msg)
+    {
+        flags_.clear();
+        flags_.insert(msg->flags.begin(), msg->flags.end());
+        if(flagEnabledQ("high_speed_run")) {
+            ROS_INFO("GOT COMMAND ON");
+            motion_primitives_live = true;
+        }
+        else{
+            ROS_INFO("GOT COMMAND OFF");
+            motion_primitives_live = false;
+        }
+
+    }
+
+    bool flagEnabledQ(const std::string& flag)
+    {
+        return flags_.count(flag) != 0;
     }
 
     // void OnCommand(const fla_msgs::FlightCommand& msg)  {
@@ -1337,8 +1359,12 @@ private:
 
     ros::NodeHandle nh;
 
+    ros::Subscriber flags_sub_;
+
+
 public:
     MotionVisualizer motion_visualizer;
+    std::set<std::string> flags_;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 

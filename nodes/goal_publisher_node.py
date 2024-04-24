@@ -13,7 +13,7 @@ class GoalNode:
         rospy.init_node('goal_node')
 
         # Publishers
-        self.goal_pub = rospy.Publisher('local_goal', PoseStamped, queue_size=0)
+        self.goal_pub = rospy.Publisher('~local_goal', PoseStamped, queue_size=0)
 
         # Subscribers
         self.pose_sub = rospy.Subscriber('~pose_topic', PoseWithCovarianceStamped, self.pose_callback)

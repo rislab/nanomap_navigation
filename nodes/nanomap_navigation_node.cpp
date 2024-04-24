@@ -55,6 +55,7 @@
 #include <control_arch/trajectory/Waypoints.h>
 #include <control_arch/Waypoints.h>
 
+#include <control_arch/FsmFlags.h>
 #define GRAVITY_CONSTANT 9.8
 
 namespace pu = parameter_utils;
@@ -120,18 +121,22 @@ public:
         // TODO: remove this and enable flight_command
         // ros::Duration(20.0).sleep();
 
-        // Subscribers
-        odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
-        // pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
-        // velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
+        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
+     }
 
+     bool registerCameraCallback()
+     {
         camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
      }
 
      bool registerSubscribersPublishers()
      {
+        std::cout << "Registering publishers subscribers" << std::endl;
+        // Subscribers
+        odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
+        // velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
+        // pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
         depth_image_sub = nh.subscribe("depth_camera_pointcloud_topic", 1, &NanoMapNavigationNode::OnDepthImage, this);
-        
         // max_speed_sub = nh.subscribe("/max_speed", 1, &NanoMapNavigationNode::OnMaxSpeed, this);
         local_goal_sub = nh.subscribe("local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
         // laser_scan_sub = nh.subscribe("laser_scan_topic", 1, &NanoMapNavigationNode::OnScan, this);
@@ -185,6 +190,7 @@ public:
         }
         depth_sensor_frame_id = msg.header.frame_id;
 
+        std::cout << "Received camera info, registering subs and pubs" << std::endl;
         registerSubscribersPublishers();
     }
 
@@ -571,6 +577,23 @@ private:
             ROS_INFO("GOT COMMAND OFF");
             motion_primitives_live = false;
         }	
+    }
+
+    bool initialized_once_at_hover = false;
+    void flagsCallback(const control_arch::FsmFlags::ConstPtr& msg)
+    {
+        flags_.clear();
+        flags_.insert(msg->flags.begin(), msg->flags.end());
+        if(flagEnabledQ("hover") && !initialized_once_at_hover) {
+            std::cout << "Registering camera callback" << std::endl;
+            registerCameraCallback();
+            initialized_once_at_hover = true;
+        }
+    }
+
+    bool flagEnabledQ(const std::string& flag)
+    {
+        return flags_.count(flag) != 0;
     }
 
     // void OnCommand(const fla_msgs::FlightCommand& msg)  {
@@ -1346,8 +1369,12 @@ private:
 
     ros::NodeHandle nh;
 
+    ros::Subscriber flags_sub_;
+
+
 public:
     MotionVisualizer motion_visualizer;
+    std::set<std::string> flags_;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 

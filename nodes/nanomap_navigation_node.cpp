@@ -570,11 +570,9 @@ private:
     {
         flags_.clear();
         flags_.insert(msg->flags.begin(), msg->flags.end());
-        if(flagEnabledQ("high_speed_run")) {
-            ROS_INFO("GOT COMMAND ON");
-            motion_primitives_live = true;
-        }
-        else{
+
+        // When hover is triggered, we stop nanomap motions
+        if(!flagEnabledQ("position_bypass") && motion_primitives_live) {
             ROS_INFO("GOT COMMAND OFF");
             motion_primitives_live = false;
         }

@@ -119,17 +119,23 @@ public:
 
         // wait until the we are in hover (otherwise we execute E-STOP immediately)
         // TODO: remove this and enable flight_command
-        ros::Duration(20.0).sleep();
+        // ros::Duration(20.0).sleep();
 
+        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
+     }
+
+     bool registerCameraCallback()
+     {
+        camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
+     }
+
+     bool registerSubscribersPublishers()
+     {
+        std::cout << "Registering publishers subscribers" << std::endl;
         // Subscribers
         odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
         // pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
-        // velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
-        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
-        
-        camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
         depth_image_sub = nh.subscribe("depth_camera_pointcloud_topic", 1, &NanoMapNavigationNode::OnDepthImage, this);
-        
         // max_speed_sub = nh.subscribe("/max_speed", 1, &NanoMapNavigationNode::OnMaxSpeed, this);
         local_goal_sub = nh.subscribe("local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
         // laser_scan_sub = nh.subscribe("laser_scan_topic", 1, &NanoMapNavigationNode::OnScan, this);
@@ -145,6 +151,7 @@ public:
         // status_pub = nh.advertise<fla_msgs::ProcessStatus>("status_topic", 0);
         // quad_goal_pub = nh.advertise<acl_fsw::QuadGoal>("/FLA_ACL02/goal", 1);
         waypoints_pub = nh.advertise<control_arch::Waypoints>("trajectory/waypoints", 1);
+        return true;
      }
 
      void WaitForTransforms(std::string first, std::string second) {
@@ -181,6 +188,9 @@ public:
             ROS_WARN_THROTTLE(1.0, "Received camera info");
         }
         depth_sensor_frame_id = msg.header.frame_id;
+
+        std::cout << "Received camera info, registering subs and pubs" << std::endl;
+        registerSubscribersPublishers();
     }
 
     void SetThrustForLibrary(double thrust) {
@@ -351,10 +361,12 @@ public:
     }
 
     void AltitudeFeedbackOnBestMotion() {
+        std::cout << "AltitudeFeedbackOnBestMotion" << std::endl;
         MotionLibrary* motion_library_ptr = motion_selector.GetMotionLibraryPtr();
         if (motion_library_ptr != nullptr) {
                 Motion best_motion = motion_library_ptr->getMotionFromIndex(best_traj_index);
-                Vector3 best_motion_position_ortho_body =  best_motion.getPosition(1.0);
+                // Vector3 best_motion_position_ortho_body =  best_motion.getPosition(1.0); // hardcoded to 1.0
+                Vector3 best_motion_position_ortho_body =  best_motion.getPosition(1.0); //TODO (jonlee48)
                 Vector3 best_motion_position_world = TransformOrthoBodyToWorld(best_motion_position_ortho_body);
                 double new_z_setpoint = best_motion_position_world(2);
                 attitude_generator.setZsetpoint(new_z_setpoint);
@@ -389,10 +401,10 @@ private:
         // implicitly converting from Eigen Vector3 to geometry_utils::Vec3
         state.pos = TransformOrthoBodyToWorld(motion.getPosition(t));
         state.vel = RotateOrthoBodyToWorld(motion.getVelocity(t));
-        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t));
-        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t));
-        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way: getAcceleration()
-        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way: getJerk()
+        // Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAcceleration()); // Pete's constant way
+        // Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerk());        // Pete's constant way
+        Vector3 acc_des = RotateOrthoBodyToWorld(motion.getAccelerationAtTime(t)); // (jonlee48) much smoother trajectory
+        Vector3 jerk_ref = RotateOrthoBodyToWorld(motion.getJerkAtTime(t)); // (jonlee48) much smoother trajectory
         state.acc = acc_des; 
         state.jerk = jerk_ref; 
         state.snap.zeros();
@@ -566,6 +578,8 @@ private:
         }	
     }
 
+
+    bool initialized_once_at_hover = false;
     void flagsCallback(const control_arch::FsmFlags::ConstPtr& msg)
     {
         flags_.clear();
@@ -576,7 +590,11 @@ private:
             ROS_INFO("GOT COMMAND OFF");
             motion_primitives_live = false;
         }
-
+        if(flagEnabledQ("hover") && !initialized_once_at_hover) {
+            std::cout << "Registering camera callback" << std::endl;
+            registerCameraCallback();
+            initialized_once_at_hover = true;
+        }
     }
 
     bool flagEnabledQ(const std::string& flag)

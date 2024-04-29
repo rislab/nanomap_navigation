@@ -5,13 +5,12 @@ import rospy
 from geometry_msgs.msg import Point, PoseWithCovarianceStamped, Vector3, Quaternion
 from visualization_msgs.msg import Marker, MarkerArray
 from std_msgs.msg import ColorRGBA
-from tf.transformations import rotation_matrix, quaternion_matrix, quaternion_from_matrix
 from scipy.spatial.transform import Rotation
 
 # TODO bring this out to flight plotter
 
 class TrajectoryHistoryNode:
-    def __init__(self, traj_draw_rate=10, pose_draw_rate=1, history_length=10, redraw_history=False):
+    def __init__(self, traj_draw_rate=10, pose_draw_rate=1, history_length=2, redraw_history=False):
         '''
         history_length: how much of trajectory to over
         redraw_history: overwrites trajectory history visualizations
@@ -25,8 +24,8 @@ class TrajectoryHistoryNode:
         rospy.init_node('trajectory_history_node')
 
         # Publishers
-        self.traj_pub = rospy.Publisher('trajectory_history', Marker, queue_size=1)
-        self.pose_pub = rospy.Publisher('trajectory_poses', MarkerArray, queue_size=1)
+        self.traj_pub = rospy.Publisher('~trajectory_history', Marker, queue_size=1)
+        self.pose_pub = rospy.Publisher('~trajectory_poses', MarkerArray, queue_size=1)
 
         # Subscribers
         self.pose_sub = rospy.Subscriber('~pose_topic', PoseWithCovarianceStamped, self.pose_callback)
@@ -123,11 +122,12 @@ class TrajectoryHistoryNode:
         marker_pub.publish(marker_array)
 
     def pose_callback(self, pose_with_covariance_msg):
-        if (rospy.Time.now().to_sec() - self.last_traj_draw_time > 1/self.traj_draw_rate):
-            self.last_draw_time = rospy.Time.now().to_sec()
+        pose = pose_with_covariance_msg.pose.pose
+        stamp = pose_with_covariance_msg.header.stamp
 
-            pose = pose_with_covariance_msg.pose.pose
-            stamp = pose_with_covariance_msg.header.stamp
+        if (rospy.Time.now().to_sec() - self.last_traj_draw_time > 1/self.traj_draw_rate):
+            self.last_traj_draw_time = rospy.Time.now().to_sec()
+
             self.points_history.append(pose.position)
             if (len(self.points_history) > self.history_length):
                 self.points_history.pop(0)
@@ -148,7 +148,7 @@ class TrajectoryHistoryNode:
 
 if __name__ == '__main__':
     try:
-        node = TrajectoryHistoryNode(traj_draw_rate=10, pose_draw_rate=4)
+        node = TrajectoryHistoryNode(traj_draw_rate=10, pose_draw_rate=4, redraw_history=False)
         rospy.spin()
     except rospy.ROSInterruptException:
         pass

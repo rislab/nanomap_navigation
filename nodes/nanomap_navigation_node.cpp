@@ -132,7 +132,6 @@ public:
         std::cout << "Registering publishers subscribers" << std::endl;
         // Subscribers
         odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
-        // velocity_sub = nh.subscribe("twist_topic", 100, &NanoMapNavigationNode::OnVelocity, this);
         // pose_sub = nh.subscribe("pose_topic", 100, &NanoMapNavigationNode::OnPose, this);
         depth_image_sub = nh.subscribe("depth_camera_pointcloud_topic", 1, &NanoMapNavigationNode::OnDepthImage, this);
         // max_speed_sub = nh.subscribe("/max_speed", 1, &NanoMapNavigationNode::OnMaxSpeed, this);
@@ -577,11 +576,18 @@ private:
         }	
     }
 
+
     bool initialized_once_at_hover = false;
     void flagsCallback(const control_arch::FsmFlags::ConstPtr& msg)
     {
         flags_.clear();
         flags_.insert(msg->flags.begin(), msg->flags.end());
+
+        // When hover is triggered, we stop nanomap motions
+        if(!flagEnabledQ("position_bypass") && motion_primitives_live) {
+            ROS_INFO("GOT COMMAND OFF");
+            motion_primitives_live = false;
+        }
         if(flagEnabledQ("hover") && !initialized_once_at_hover) {
             std::cout << "Registering camera callback" << std::endl;
             registerCameraCallback();

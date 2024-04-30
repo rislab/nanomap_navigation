@@ -118,14 +118,10 @@ public:
         // std::cout << "Received transform" << std::endl;
         last_pose_update = ros::Time::now();
         PublishOrthoBodyTransform(0.0, 0.0); // initializes ortho_body transform to be with 0, 0 roll, pitch
-
+        camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
         flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
      }
 
-     bool registerCameraCallback()
-     {
-        camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
-     }
 
      bool registerSubscribersPublishers()
      {
@@ -588,11 +584,7 @@ private:
             ROS_INFO("GOT COMMAND OFF");
             motion_primitives_live = false;
         }
-        if(flagEnabledQ("hover") && !initialized_once_at_hover) {
-            std::cout << "Registering camera callback" << std::endl;
-            registerCameraCallback();
-            initialized_once_at_hover = true;
-        }
+
     }
 
     bool flagEnabledQ(const std::string& flag)

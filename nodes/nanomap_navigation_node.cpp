@@ -111,15 +111,13 @@ public:
         motion_visualizer.initialize(&motion_selector, nh, &best_traj_index, final_time);
         nanomap_visualizer.Initialize(nh);
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
-        std::cout << "Waiting for transforms" << std::endl;
-        WaitForTransforms("world", "ortho_body"); 
-        std::cout << "Received transform" << std::endl;
-        // last_pose_update = ros::Time::now();
-        // PublishOrthoBodyTransform(0.0, 0.0); // initializes ortho_body transform to be with 0, 0 roll, pitch
 
-        // wait until the we are in hover (otherwise we execute E-STOP immediately)
-        // TODO: remove this and enable flight_command
-        // ros::Duration(20.0).sleep();
+        // JL: no need to wait for ortho_body tf, it is published by OnPose
+        // std::cout << "Waiting for transforms" << std::endl;
+        // WaitForTransforms("world", "ortho_body"); 
+        // std::cout << "Received transform" << std::endl;
+        last_pose_update = ros::Time::now();
+        PublishOrthoBodyTransform(0.0, 0.0); // initializes ortho_body transform to be with 0, 0 roll, pitch
 
         flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
      }
@@ -752,6 +750,11 @@ private:
 
     ros::Time last_pose_update;
     void OnPose( geometry_msgs::PoseStamped const& pose ) {
+        // JL: Moved PublishOrthoBodyTransform to top 
+        tf::Quaternion q(pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
+        double roll, pitch, yaw;
+        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        PublishOrthoBodyTransform(roll, pitch);
 
         if ((ros::Time::now() - last_point_cloud_received).toSec() > 0.1) {
             // JON Added this update to always keep rotations up to date
@@ -768,17 +771,12 @@ private:
         motion_selector.UpdateCurrentAltitude(pose.pose.position.z);
         // ROS_INFO("GOT POSE");
 
-        tf::Quaternion q(pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
-        double roll, pitch, yaw;
-        tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-
         // if (!use_lidar_lite_z) {
         attitude_generator.setZ(pose.pose.position.z);
         // }
         last_pose_update = pose.header.stamp;
         UpdateMotionLibraryRollPitch(roll, pitch);
         UpdateAttitudeGeneratorRollPitch(roll, pitch);
-        PublishOrthoBodyTransform(roll, pitch);
         UpdateCarrotOrthoBodyFrame();
 
         // double vel = 0.0;

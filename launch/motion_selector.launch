@@ -18,7 +18,6 @@
 
   <node pkg="motion_primitives" type="motion_selector_node" name="motion_selector" output="screen">
     <rosparam command="load" if="$(arg load_params)" file="$(find motion_primitives)/cfg/motion_selector.yaml" />
-    <remap from="~local_goal_topic" to="/move_base_simple/goal" unless="$(arg use_global_planner)"/>
 
     <remap from="~depth_camera_info_topic" to="$(arg r200_depth_camera_info_topic)" if="$(arg use_realsense)"/>
     <remap from="~depth_camera_pointcloud_topic" to="$(arg r200_depth_camera_pointcloud_topic)" if="$(arg use_realsense)"/>
@@ -37,7 +36,7 @@
     <remap from="~attitude_setpoint_topic" to="/mux_input_1" />
     <remap from="~setpoint_visualization_topic" to="/attitude_setpoint" />
     <remap from="~status_topic" to="/globalstatus" />
-    <remap from="~local_goal_topic" to="/local_goal" />
+    <remap from="~local_goal_topic" to="/goal/position" />
 
   </node>
 </launch>

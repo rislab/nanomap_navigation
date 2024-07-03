@@ -45,6 +45,7 @@
 #include <nanomap_ros/nanomap_visualizer.h>
 
 #include <parameter_utils/ParameterUtils.h>
+#include <publisher_utils/TimeProfiler.h>
 #include <control_arch/Waypoints.h>
 #include <control_arch/utils/state_t.h>
 #include <control_arch/trajectory/Waypoints.h>
@@ -84,6 +85,7 @@ public:
         pu::get("thrust_offset", offset);
         pu::get("N_depth_image_history", N_depth_image_history);
         pu::get("body_frame_id", body_frame_id);
+        pu::get("enable_time_profiler", enable_time_profiler_);
 
         this->soft_top_speed_max = soft_top_speed;
         default_body_to_rdf << 0, -1, 0, 0, 0, -1, 1, 0, 0;
@@ -101,6 +103,14 @@ public:
         motion_visualizer.initialize(&motion_selector, nh, &best_traj_index, final_time);
         nanomap_visualizer.Initialize(nh);
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
+
+        time_profiler_ = std::make_shared<TimeProfiler>();
+        if (!time_profiler_->initialize(nh))
+        {
+          ROS_ERROR("NanoMapNavigationNode: failed to initialize time profiler.");
+        }
+        std::cout << "Setting time profiler to " << enable_time_profiler_ << std::endl;
+        time_profiler_->enable(enable_time_profiler_);
 
         // JL: wait until world to body transform is recieved
         ROS_INFO("Nanomap Node waiting for world to body transform");
@@ -191,12 +201,11 @@ public:
             return;
         }
 
-        auto t1 = std::chrono::high_resolution_clock::now();
+        time_profiler_->tic("timer/replan");
         motion_selector.computeBestEuclideanMotion(carrot_ortho_body_frame, best_traj_index, desired_acceleration);
-        
-          std::vector<double> collision_probabilities = motion_selector.getCollisionProbabilities();
-        //   std::vector<double> hokuyo_collision_probabilities = motion_selector.getHokuyoCollisionProbabilities();
+        std::vector<double> collision_probabilities = motion_selector.getCollisionProbabilities();
         motion_visualizer.setCollisionProbabilities(collision_probabilities);
+        time_profiler_->toc("timer/replan");
         // JL: CheckIfInevitableCollision now uses collision_probabilities instead of hokuyo_collision_probabilities
         if (motion_primitives_live && (executing_e_stop || CheckIfInevitableCollision(collision_probabilities))) {
             ROS_WARN_THROTTLE(1.0, "Executing E-STOP maneuver");
@@ -1066,8 +1075,10 @@ private:
             NOMINAL = 0
     };
 
-    ros::NodeHandle nh;
+    bool enable_time_profiler_;
+    TimeProfiler::Ptr time_profiler_;
 
+    ros::NodeHandle nh;
     ros::Subscriber flags_sub_;
 
 
@@ -1087,18 +1098,10 @@ int main(int argc, char* argv[]) {
 
     ros::Rate spin_rate(100);
 
-    auto t1 = std::chrono::high_resolution_clock::now();
-    auto t2 = std::chrono::high_resolution_clock::now();
-
     size_t counter = 0;
 
     while (ros::ok()) {
-        //t1 = std::chrono::high_resolution_clock::now();
         //motion_selector_node.ReactToSampledPointCloud();
-        //t2 = std::chrono::high_resolution_clock::now();
-        // std::cout << "ReactToSampledPointCloud took "
-  //     		<< std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count()
-  //     		<< " microseconds\n";
         motion_selector_node.PublishCurrentAttitudeSetpoint();
 
         counter++;

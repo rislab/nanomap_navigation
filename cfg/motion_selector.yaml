@@ -19,3 +19,4 @@ use_lidar_lite_z: false
 thrust_offset: 0.605 ## 0.75 for 5S ## 0.605 for 6S
 # N_depth_image_history: 150
 N_depth_image_history: 15
+enable_time_profiler: true

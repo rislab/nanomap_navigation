@@ -25,6 +25,7 @@
   <build_depend>pcl_ros</build_depend>
   <build_depend>nanomap_ros</build_depend>
   <build_depend>parameter_utils</build_depend>
+  <build_depend>publisher_utils</build_depend>
   <build_depend>control_arch</build_depend>
 
   <run_depend>roscpp</run_depend>
@@ -40,5 +41,6 @@
   <run_depend>pcl_ros</run_depend>
   <run_depend>nanomap_ros</run_depend>
   <run_depend>parameter_utils</run_depend>
+  <run_depend>publisher_utils</run_depend>
   <run_depend>control_arch</run_depend>
 </package>

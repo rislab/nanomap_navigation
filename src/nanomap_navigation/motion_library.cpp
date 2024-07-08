@@ -128,8 +128,8 @@ void MotionLibrary::updateInitialAcceleration() {
 	double acceleration_from_thrust = thrust * 9.8/0.7; //(jonlee48) not sure what 0.7 is, but without it quad crashes
 	double a_x_initial = acceleration_from_thrust * sin(pitch);
 	double a_y_initial = -acceleration_from_thrust * cos(pitch)*sin(roll);
-	// double a_z_initial = acceleration_from_thrust * cos(pitch) * cos(roll)-9.8; // (jonlee48) restricts to 2D flight
-	double a_z_initial = 0; // (jonlee48) enables 3D flight, but crashes are more frequent
+	double a_z_initial = acceleration_from_thrust * cos(pitch) * cos(roll)-9.8; // (jonlee48) restricts to 2D flight
+	// double a_z_initial = 0; // (jonlee48) enables 3D flight, but crashes are more frequent
 
 	initial_acceleration = Vector3(a_x_initial, a_y_initial, a_z_initial);
 	for (size_t index = 0; index < motions.size(); index++) {

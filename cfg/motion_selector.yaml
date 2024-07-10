@@ -4,14 +4,13 @@ acceleration_interpolation_min: 2.5 # m/s^2
 acceleration_interpolation_max: 7.5  # m/s^2
 # speed_at_acceleration_max: 10.0 # m/s
 speed_at_acceleration_max: 1.5 # m/s
-yaw_on: true
+yaw_on: false
 use_depth_image: true
 flight_altitude: 2.0 # m
 use_acl: true
 use_3d_library: true
 max_e_stop_pitch_degrees: 45.0
 laser_z_below_project_up: -1.25 # m
-# sensor_range: 20.0 # m
 sensor_range: 10.0 # m
 A_dolphin: 0.4 # m
 T_dolphin: 3.0 # s

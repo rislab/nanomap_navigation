@@ -117,7 +117,7 @@ public:
         WaitForTransforms("world", body_frame_id); 
         ROS_INFO("Received for world to body transform");
         last_pose_update = ros::Time::now();
-        PublishOrthoBodyTransform(0.0, 0.0); // initializes ortho_body transform to be with 0, 0 roll, pitch
+        PublishOrthoBodyTransform(0.0, 0.0, last_pose_update); // initializes ortho_body transform to be with 0, 0 roll, pitch
 
         registerSubscribersPublishers();
      }
@@ -567,11 +567,11 @@ private:
         }
     }
 
-    void PublishOrthoBodyTransform(double roll, double pitch) {
+    void PublishOrthoBodyTransform(double roll, double pitch, const ros::Time& time) {
         static tf2_ros::TransformBroadcaster br;
           geometry_msgs::TransformStamped transformStamped;
   
-        transformStamped.header.stamp = ros::Time::now();
+        transformStamped.header.stamp = time;
         transformStamped.header.frame_id = body_frame_id;
         transformStamped.child_frame_id = "ortho_body";
         transformStamped.transform.translation.x = 0.0;
@@ -631,7 +631,7 @@ private:
         tf::Quaternion q(pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
         double roll, pitch, yaw;
         tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
-        PublishOrthoBodyTransform(roll, pitch);
+        PublishOrthoBodyTransform(roll, pitch, pose.header.stamp);
 
         if ((ros::Time::now() - last_point_cloud_received).toSec() > 0.1) {
             // JON Added this update to always keep rotations up to date

@@ -44,7 +44,6 @@ public:
 private:
 
 	std::string drawing_frame = "ortho_body"; // original
-	// std::string drawing_frame = "rocky0704/base";
 	ros::NodeHandle nh;
 	ros::Publisher gaussian_pub;
   ros::Publisher collision_pub;

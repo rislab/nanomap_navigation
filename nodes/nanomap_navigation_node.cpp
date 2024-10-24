@@ -20,6 +20,7 @@
 #include <std_msgs/Float64.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/Header.h>
+#include <std_msgs/Bool.h>
 
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
@@ -122,14 +123,30 @@ public:
         registerSubscribersPublishers();
      }
 
+     bool received_pose = false;
+     bool WaitForInitialYaw()
+     {
+        std::cout << "WaitForInitialYaw" << std::endl;
+        ros::Rate(100);
+        while (!received_pose)
+        {
+            ros::spinOnce();
+        }
+        std::cout << "Received initial yaw" << std::endl;
+        return true;
+     }
+
 
      bool registerSubscribersPublishers()
      {
         std::cout << "Registering publishers subscribers" << std::endl;
         // Subscribers
         camera_info_sub = nh.subscribe("depth_camera_info_topic", 1, &NanoMapNavigationNode::OnCameraInfo, this);
-        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
         odom_sub = nh.subscribe("odometry_topic", 100, &NanoMapNavigationNode::OnOdometry, this);
+        WaitForInitialYaw();
+        std::cout << "Initializing rest of callbacks" << std::endl;
+
+        flags_sub_ = nh.subscribe("flags", 1, &NanoMapNavigationNode::flagsCallback, this);
         depth_image_sub = nh.subscribe("depth_camera_pointcloud_topic", 1, &NanoMapNavigationNode::OnDepthImage, this);
         // max_speed_sub = nh.subscribe("/max_speed", 1, &NanoMapNavigationNode::OnMaxSpeed, this);
         local_goal_sub = nh.subscribe("local_goal_topic", 1, &NanoMapNavigationNode::OnLocalGoal, this);
@@ -631,6 +648,20 @@ private:
         tf::Quaternion q(pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z, pose.pose.orientation.w);
         double roll, pitch, yaw;
         tf::Matrix3x3(q).getRPY(roll, pitch, yaw);
+        if (!received_pose) 
+        {
+            motion_selector.SetNominalFlightAltitude(pose.pose.position.z);
+            attitude_generator.setZsetpoint(pose.pose.position.z);
+            std::cout << "Setting bearing angles" << std::endl;
+            // initialize bearing angle in case not initially zero
+            bearing_azimuth_degrees = -yaw * 180.0/M_PI;
+            set_bearing_azimuth_degrees = -yaw * 180/M_PI;
+            // bearing_azimuth_degrees = 0.0;
+            // set_bearing_azimuth_degrees = 0.0;
+            std::cout << "bearing_azimuth_degrees " << bearing_azimuth_degrees << std::endl;
+            std::cout << "set_bearing_azimuth_degrees " << set_bearing_azimuth_degrees << std::endl;
+            received_pose = true;
+        }
         PublishOrthoBodyTransform(roll, pitch, pose.header.stamp);
 
         if ((ros::Time::now() - last_point_cloud_received).toSec() > 0.1) {
@@ -1089,14 +1120,32 @@ public:
 };
 
 
+bool sim_ready = false;
+
+void sim_status_callback(const std_msgs::Bool& sim_status)
+{
+    sim_ready = sim_status.data;
+}
+
 int main(int argc, char* argv[]) {
     std::cout << "Initializing nanomap_navigation_node" << std::endl;
 
     ros::init(argc, argv, "NanoMapNavigationNode");
 
-    NanoMapNavigationNode motion_selector_node;
+
+    ros::NodeHandle nh;
+    ros::Subscriber sub = nh.subscribe("/init_sim_status", 10, sim_status_callback);
 
     ros::Rate spin_rate(100);
+    std::cout << "Nanomap navigation node waiting for simulation" << std::endl;
+    while(ros::ok() && !sim_ready)
+    {
+        ros::spinOnce();
+        spin_rate.sleep();
+    }
+    std::cout << "Starting up Nanomap navigation node" << std::endl;
+
+    NanoMapNavigationNode motion_selector_node;
 
     size_t counter = 0;
 
